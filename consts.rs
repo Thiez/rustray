@@ -2,7 +2,7 @@
 const WIDTH : uint = 1024u;
 const HEIGHT : uint = 1024u;
 const FOV : f32 = 3.14159f32 / 3f32 ;
-const SAMPLE_GRID_SIZE : uint = 8u;
+const SAMPLE_GRID_SIZE : uint = 2u;
 const NUM_GI_SAMPLES_SQRT: uint = 2u;
 const NUM_LIGHT_SAMPLES : uint = 2u;
 const MAX_TRACE_DEPTH : uint = 1u;
