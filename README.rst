@@ -1,14 +1,14 @@
 Rustray
 =======
 
-October 2012
+December 2012
 
 A raytracing proof-of-concept in Rust
 
 Requirements
 ------------
 
-- Rust-0.4
+- Rust-0.5
 
 Compiling
 ---------
