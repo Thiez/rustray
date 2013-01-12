@@ -7,9 +7,9 @@ pub type polysoup = { vertices: ~[vec3], indices: ~[uint], normals: ~[vec3] };
 pub type mesh = { polys: polysoup, kd_tree: kd_tree, bounding_box: aabb };
 
 pub enum axis {
-	pub x,
-	pub y,
-	pub z
+	x,
+	y,
+	z
 }
 
 pub struct kd_tree {
@@ -18,20 +18,20 @@ pub struct kd_tree {
 }
 
 pub enum kd_tree_node {
-	pub leaf( u32, u32 ),
-	pub node( axis, f32, u32 )
+	leaf( u32, u32 ),
+	node( axis, f32, u32 )
 }
 
 fn find_split_plane( distances: &[f32], indices: &[uint], faces: &[uint] ) -> f32 {
 
-	let mut face_distances = ~[];
+	let mut face_distances = vec::with_capacity(3*vec::len(faces));
 	for faces.each |f| {
 		face_distances.push(distances[indices[*f*3u]]);
 		face_distances.push(distances[indices[*f*3u+1u]]);
 		face_distances.push(distances[indices[*f*3u+2u]]);
 	}
 
-	let mut sorted_distances = sort::merge_sort( face_distances, |a,b| *a<*b );
+	let mut sorted_distances = sort::merge_sort( face_distances, |a,b| a<b );
 	let n = vec::len(sorted_distances);
 	if n % 2u == 0u {
 		sorted_distances[ n/2u ]
@@ -62,7 +62,7 @@ fn split_triangles( splitter: f32, distances: &[f32], indices: &[uint], faces: &
 		}
 	}
 
-	{l:move l, r:move r}
+	{l: l, r: r}
 }
 
 fn build_leaf(
@@ -180,12 +180,12 @@ pub fn count_kd_tree_nodes( t: &kd_tree ) -> {depth:uint, count:uint} {
 
 fn count_kd_tree_nodes_( root: uint, nodes: &[kd_tree_node]) -> {depth:uint, count:uint} {
 	match nodes[root] {
-	node(_,_,r) => {
-	let {depth:d0,count:c0} = count_kd_tree_nodes_( root+1u, nodes);
-	let {depth:d1,count:c1} = count_kd_tree_nodes_( (r as uint), nodes);
-	{depth: uint::max(d0,d1)+1u, count: c0+c1+1u }
-	}
-	leaf(_,_) => {depth:1u, count:1u}
+		node(_,_,r) => {
+			let {depth:d0,count:c0} = count_kd_tree_nodes_( root+1u, nodes);
+			let {depth:d1,count:c1} = count_kd_tree_nodes_( (r as uint), nodes);
+			{depth: uint::max(d0,d1)+1u, count: c0+c1+1u }
+		}
+		leaf(_,_) => {depth:1u, count:1u}
 	}
 }
 
@@ -197,7 +197,7 @@ pub fn read_mesh(fname: &str) -> mesh {
 
 	// just create a vector of 0..N-1 as our face array
 	let max_tri_ix = vec::len(polys.indices)/3u -1u;
-	let mut faces = ~[];
+	let mut faces = vec::with_capacity(max_tri_ix); /*~[];*/
 	let mut fii = 0u;
 	while fii < max_tri_ix {
 		faces.push(fii);
@@ -213,7 +213,7 @@ pub fn read_mesh(fname: &str) -> mesh {
 	let downscale = 1.0f32 / math3d::length(sub(aabbmax,aabbmin));
 	let offset = scale(add(aabbmin, aabbmax), 0.5f32);
 
-	let mut transformed_verts = ~[];
+	let mut transformed_verts = vec::with_capacity(vec::len(polys.vertices)); //~[];
 
 	for polys.vertices.each |v| {
 		transformed_verts.push(scale(sub(*v, offset), downscale));
@@ -222,9 +222,9 @@ pub fn read_mesh(fname: &str) -> mesh {
 	aabbmin = scale(sub(aabbmin, offset), downscale);
 	aabbmax = scale(sub(aabbmax, offset), downscale);
 	// de-mux vertices for easier access later
-	let mut xdists = ~[];
-	let mut ydists = ~[];
-	let mut zdists = ~[];
+	let mut xdists = vec::with_capacity(vec::len(transformed_verts));
+	let mut ydists = vec::with_capacity(vec::len(transformed_verts));
+	let mut zdists = vec::with_capacity(vec::len(transformed_verts));
 	for transformed_verts.each |v| {
 		xdists.push(v.x);
 		ydists.push(v.y);
@@ -243,7 +243,7 @@ pub fn read_mesh(fname: &str) -> mesh {
 						aabbmax,
 						polys.indices,
 						faces);
-	{ polys: {vertices: move transformed_verts, indices: move new_indices, .. polys}, kd_tree: kd_tree{ root: rootnode, nodes: move nodes} , bounding_box: move {min: aabbmin, max: aabbmax} }
+	{ polys: {vertices: transformed_verts, indices: new_indices, .. polys}, kd_tree: kd_tree{ root: rootnode, nodes: nodes} , bounding_box: {min: aabbmin, max: aabbmax} }
 
 }
 
@@ -283,8 +283,8 @@ fn read_polysoup(fname: &str) -> polysoup {
 			assert v.y != f32::NaN;
 			assert v.z != f32::NaN;
 
-			vertices += [v];
-			vert_normals += [mut vec3(0f32,0f32,0f32)];
+			vertices.push(v);
+			vert_normals.push(vec3(0f32,0f32,0f32));
 
 		} else if tokens[0] == ~"f" {
 			if vec::len(tokens) == 4u || vec::len(tokens) == 5u {
@@ -335,11 +335,7 @@ fn read_polysoup(fname: &str) -> polysoup {
 		}
 	}
 
-	//for v in vert_normals {
-	//	v = normalized(v);
-	//}
-
-	return {	vertices: move vertices,
-			indices: move indices,
+	return {	vertices: vertices,
+			indices: indices,
 			normals: vec::map( vert_normals, |v| normalized(*v) ) };
 }
