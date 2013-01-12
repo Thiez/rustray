@@ -2,7 +2,7 @@ use io::{Writer, WriterUtil};
 use consts::*;
 use raytracer::*;
 
-fn write_ppm( fname: &str, width: uint, height: uint, pixels: &[color] ){
+fn write_ppm( fname: &str, width: uint, height: uint, pixels: &[Color] ){
 
 	let writer = result::get( &io::file_writer( &Path(fname), [io::Create, io::Truncate] ) );
 

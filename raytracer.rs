@@ -3,10 +3,10 @@ use math3d::*;
 
 use consts::*; // for the consts.. ugh... make the constants go away
 
-type color = { r:u8, g:u8, b:u8 };
+struct Color { r:u8, g:u8, b:u8 }
 
 #[inline(always)]
-fn for_each_pixel( width: uint, height: uint, f : fn (x: uint, y: uint) -> color ) -> ~[color]{
+fn for_each_pixel( width: uint, height: uint, f : fn (x: uint, y: uint) -> Color ) -> ~[Color]{
 	let mut img_pixels = vec::with_capacity(height*width);
 
 	for uint::range( 0u, height ) |row| {
@@ -594,7 +594,7 @@ pub fn generate_raytraced_image(
 	horizontalFOV: f32,
 	width: uint,
 	height: uint,
-	sample_grid_size: uint) -> ~[color]
+	sample_grid_size: uint) -> ~[Color]
 {
 	let sample_coverage_inv = 1f32 / (sample_grid_size as f32);
 	let rnd = get_rand_env();
@@ -615,8 +615,8 @@ pub fn generate_raytraced_image(
 			shaded_color = add( shaded_color, get_color(r, &mesh, lights, &rnd, 0f32, f32::infinity, 0u));
 		}
 		shaded_color = scale(gamma_correct(scale( shaded_color, sample_coverage_inv*sample_coverage_inv)), 255f32);
-
-		{	r: clamp(shaded_color.x, 0f32, 255f32) as u8,
+		Color{
+			r: clamp(shaded_color.x, 0f32, 255f32) as u8,
 			g: clamp(shaded_color.y, 0f32, 255f32) as u8,
 			b: clamp(shaded_color.z, 0f32, 255f32) as u8 }
 	})
