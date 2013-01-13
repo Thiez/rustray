@@ -57,13 +57,13 @@ fn get_rand_env() -> rand_env {
 
 #[incline(always)]
 fn sample_floats_2d_offset( offset: uint, rnd: &rand_env, num: uint, body: fn(f32,f32) ) {
-	let mut ix = offset % vec::len(rnd.floats);
+	let mut ix = offset % rnd.floats.len();
 	for iter::repeat(num) {
 		let r1 = rnd.floats[ix];
-		ix = (ix + 1u) % vec::len(rnd.floats);
+		ix = (ix + 1u) % rnd.floats.len();
 		let r2 = rnd.floats[ix];
 		body(r1,r2);
-		ix = (ix + 1u) % vec::len(rnd.floats);
+		ix = (ix + 1u) % rnd.floats.len();
 	}
 }
 
@@ -73,11 +73,11 @@ fn sample_disk( rnd: &rand_env, num: uint, body: fn(f32,f32) ){
 	if ( num == 1u ) {
 		body(0f32,0f32);
 	} else {
-		let mut ix = (rand::task_rng().next() as uint) % vec::len(rnd.disk_samples); // start at random location
+		let mut ix = (rand::task_rng().next() as uint) % rnd.disk_samples.len(); // start at random location
 		for iter::repeat(num) {
 			let (u,v) = rnd.disk_samples[ix];
 			body(u,v);
-			ix = (ix + 1u) % vec::len(rnd.disk_samples);
+			ix = (ix + 1u) % rnd.disk_samples.len();
 		};
 	}
 }
@@ -108,7 +108,7 @@ fn sample_stratified_2d( rnd: &rand_env, m: uint, n : uint, body: fn(f32,f32) ) 
 #[incline(always)]
 fn sample_cosine_hemisphere( rnd: &rand_env, n: vec3, body: fn(vec3) ) {
 	let rot_to_up = rotate_to_up(n);
-	let random_rot = rotate_y( rnd.floats[ rand::task_rng().next() as uint % vec::len(rnd.floats) ] ); // random angle about y
+	let random_rot = rotate_y( rnd.floats[ rand::task_rng().next() as uint % rnd.floats.len() ] ); // random angle about y
 	let m = mul_mtx33(rot_to_up, random_rot);
 		for rnd.hemicos_samples.each |s| {
 		body(transform(m,*s));
@@ -151,7 +151,7 @@ fn trace_kd_tree(
 		// skip any nodes that have been superceded
 		// by a closer hit.
 		while mint >= closest_hit {
-			if ( vec::len(stack) > 0u ){
+			if ( stack.len() > 0u ){
 				let (n,mn,mx) = stack.pop();
 				cur_node = n;
 				mint = mn;
@@ -187,7 +187,7 @@ fn trace_kd_tree(
 
 
 
-				if ( vec::len(stack) > 0u ){
+				if ( stack.len() > 0u ){
 					let (n,mn,mx) = stack.pop();
 					cur_node = n;
 					mint = mn;
@@ -262,7 +262,7 @@ fn trace_kd_tree_shadow(
 					}
 					tri_index += 1u32;
 				}
-				if ( vec::len(stack) > 0u ){
+				if ( stack.len() > 0u ){
 					let (n,mn,mx) = stack.pop();
 					cur_node = n as uint;
 					mint = mn;
@@ -311,7 +311,7 @@ fn trace_soup( polys: &model::polysoup, r: &Ray) -> Option<(HitResult, uint)>{
 
 	let mut res : Option<(HitResult, uint)> = option::None;
 
-	for uint::range( 0u, vec::len( polys.indices ) / 3u) |tri_ix| {
+	for uint::range( 0u, polys.indices.len() / 3u) |tri_ix| {
 		let tri = &get_triangle( polys, tri_ix);
 
 		let new_hit = r.intersect(tri);
@@ -345,13 +345,7 @@ fn direct_lighting( lights: &[light], pos: vec3, n: vec3, view_vec: vec3, rnd: &
 
 		// compute shadow contribution
 		let mut shadow_contrib = 0f32;
-
-
-		let num_samples = if depth == 0u { // do one tap in reflections and GI
-				NUM_LIGHT_SAMPLES
-			} else {
-				1u
-			};
+		let num_samples = match depth { 0u => NUM_LIGHT_SAMPLES, _ => 1u };	// do one tap in reflections and GI
 
 		let rot_to_up = rotate_to_up(normalized(sub(pos,l.pos)));
 		let shadow_sample_weight = 1f32 / (num_samples as f32);
@@ -570,6 +564,7 @@ fn get_color( r: &Ray, mesh: &model::mesh, lights: &[light], rnd: &rand_env, tmi
 
 }
 
+#[inline(always)]
 fn gamma_correct( v : vec3 ) -> vec3 {
 	vec3( f32::pow( v.x, 1f32/2.2f32 ),
 	      f32::pow( v.y, 1f32/2.2f32 ),
@@ -593,11 +588,7 @@ pub fn generate_raytraced_image(
 		let mut shaded_color = vec3(0f32,0f32,0f32);
 		
 		do sample_stratified_2d(&rnd, sample_grid_size, sample_grid_size) |u,v| {
-			let sample = if sample_grid_size == 1u {
-								(0f32,0f32)
-							} else {
-								(u-0.5f32, v-0.5f32)
-							};
+			let sample = match sample_grid_size { 1u => (0f32,0f32), _ => (u-0.5f32,v-0.5f32) };
 			let r = &get_ray(horizontalFOV, width, height, x, y, sample );
 			shaded_color = add( shaded_color, get_color(r, &mesh, lights, &rnd, 0f32, f32::infinity, 0u));
 		}

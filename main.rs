@@ -17,7 +17,7 @@ fn main()
 	// Get command line args
 	let args = os::args();
 
-	if vec::len(args) != 2u {
+	if args.len() != 2u {
 		io::println("Usage: rustray OBJ");
 		io::println("");
 		io::println("For example:");
@@ -37,8 +37,8 @@ fn main()
 	let {depth,count} = model::count_kd_tree_nodes( &model.kd_tree );
 
 	io::println(fmt!("Done.\nLoaded model.\n\tVerts: %u, Tris: %u\n\tKD-tree depth: %u, #nodes: %u",
-				vec::len(model.polys.vertices),
-				vec::len(model.polys.indices)/3u,
+				model.polys.vertices.len(),
+				model.polys.indices.len()/3u,
 				depth, count));
 
 	io::print("Tracing rays... ");
