@@ -30,7 +30,7 @@ fn get_ray( horizontalFOV: f32, width: uint, height: uint, x: uint, y: uint, sam
 type rand_env = { floats: ~[f32], disk_samples: ~[(f32,f32)], hemicos_samples: ~[vec3] };
 
 #[incline(always)]
-fn get_rand_env() -> rand_env {
+fn get_rand_env() -> rand_env{
     let gen = rand::task_rng();
 
     let disk_samples = do vec::from_fn(513u) |_x| {
@@ -44,7 +44,7 @@ fn get_rand_env() -> rand_env {
 
     for uint::range(0u, NUM_GI_SAMPLES_SQRT) |x| {
         for uint::range(0u, NUM_GI_SAMPLES_SQRT) |y| {
-            let (u,v) = (    ( (x as f32) + gen.gen_f32() ) / (NUM_GI_SAMPLES_SQRT as f32),
+            let (u,v) = (   ( (x as f32) + gen.gen_f32() ) / (NUM_GI_SAMPLES_SQRT as f32),
                             ( (y as f32) + gen.gen_f32() ) / (NUM_GI_SAMPLES_SQRT as f32) );
             hemicos_samples.push(cosine_hemisphere_sample(u,v));
         }
@@ -168,7 +168,7 @@ fn trace_kd_tree(
                 while tri_index < tri_begin+tri_count {
 
                     let t = get_triangle( polys, tri_index as uint );
-                    let new_hit_result = ray_triangle_intersect(r,t);
+                    let new_hit_result = ray_triangle_intersect( r, t );
 
                     match (res, new_hit_result){
                         (option::None(), option::Some(hr)) => {
@@ -257,7 +257,7 @@ fn trace_kd_tree_shadow(
                 let mut tri_index = tri_begin;
                 while tri_index < tri_begin + tri_count {
                     let t = get_triangle( polys, tri_index as uint);
-                    if option::is_some( &ray_triangle_intersect(r,t) ) {
+                    if option::is_some( &ray_triangle_intersect( r, t ) ) {
                         return true;
                     }
                     tri_index += 1u32;
@@ -314,7 +314,7 @@ fn trace_soup( polys: &model::polysoup, r: ray) -> Option<(hit_result, uint)>{
     for uint::range( 0u, polys.indices.len() / 3u) |tri_ix| {
         let tri = get_triangle( polys, tri_ix);
 
-        let new_hit = ray_triangle_intersect(r,tri);
+        let new_hit = ray_triangle_intersect( r, tri );
 
         match (res, new_hit) {
             (option::None(),option::Some(hit)) => {
@@ -438,7 +438,7 @@ fn trace_checkerboard( checkerboard_height: f32, r : ray, mint: f32, maxt: f32) 
     // compute checkerboard color, if we hit the floor plane
     if checker_hit_t > mint && checker_hit_t < maxt {
 
-            let pos = add(r.origin,scale(r.dir, checker_hit_t));
+            let pos = add(r.origin, scale(r.dir, checker_hit_t));
 
             // hacky checkerboard pattern
             let (u,v) = (f32::floor(pos.x*5f32) as int, f32::floor(pos.z*5f32) as int);
@@ -483,7 +483,7 @@ fn trace_ray( r : ray, mesh : &model::mesh, mint: f32, maxt: f32) -> Option<inte
         option::Some((hit_info, tri_ix)) if hit_info.t > 0f32 => {
             let pos = add( r.origin, scale(r.dir, hit_info.t));
 
-            let (i0,i1,i2) = (    mesh.polys.indices[tri_ix*3u],
+            let (i0,i1,i2) = (  mesh.polys.indices[tri_ix*3u],
                                 mesh.polys.indices[tri_ix*3u+1u],
                                 mesh.polys.indices[tri_ix*3u+2u] );
 
@@ -494,7 +494,7 @@ fn trace_ray( r : ray, mesh : &model::mesh, mint: f32, maxt: f32) -> Option<inte
                             scale( mesh.polys.normals[i2], hit_info.barycentric.y))));
 
             // compute face-normal
-            let (v0,v1,v2) = (    mesh.polys.vertices[i0],
+            let (v0,v1,v2) = (  mesh.polys.vertices[i0],
                                 mesh.polys.vertices[i1],
                                 mesh.polys.vertices[i2] );
             let n_face = normalized( cross(sub(v1,v0), sub(v2,v0)));
@@ -513,7 +513,7 @@ fn trace_ray( r : ray, mesh : &model::mesh, mint: f32, maxt: f32) -> Option<inte
 }
 
 #[inline(always)]
-fn trace_ray_shadow( r: ray, mesh: &model::mesh, mint: f32, maxt: f32) -> bool {
+fn trace_ray_shadow( r : ray, mesh : &model::mesh, mint: f32, maxt: f32) -> bool {
 
     let y_size = math3d::sub(mesh.bounding_box.max, mesh.bounding_box.min).y;
 
@@ -537,7 +537,7 @@ fn trace_ray_shadow( r: ray, mesh: &model::mesh, mint: f32, maxt: f32) -> bool {
 #[inline(always)]
 fn get_color( r: ray, mesh: &model::mesh, lights: &[light], rnd: &rand_env, tmin: f32, tmax: f32, depth: uint) -> vec3 {
     let theta = dot( vec3(0f32,1f32,0f32), r.dir );
-    let default_color = vec3(clamp(1f32-theta*4f32,0f32,0.75f32)+0.25f32, clamp(0.5f32-theta*3f32,0f32,0.75f32)+0.25f32, theta);    // fake sky colour
+    let default_color = vec3(clamp(1f32-theta*4f32,0f32,0.75f32)+0.25f32, clamp(0.5f32-theta*3f32,0f32,0.75f32)+0.25f32, theta);      // fake sky colour
 
 
     if depth >= MAX_TRACE_DEPTH {
@@ -584,7 +584,7 @@ pub fn generate_raytraced_image(
     let lights = [  make_light(vec3(-3f32, 3f32, 0f32),10f32, 0.3f32, vec3(1f32,1f32,1f32)) ]; //,
                     //make_light(vec3(0f32, 0f32, 0f32), 10f32, 0.25f32, vec3(1f32,1f32,1.0f32))];
     
-    for_each_pixel(width, height, |x,y| {
+    for_each_pixel( width, height, |x,y| {
         let mut shaded_color = vec3(0f32,0f32,0f32);
         
         do sample_stratified_2d(&rnd, sample_grid_size, sample_grid_size) |u,v| {
@@ -593,8 +593,7 @@ pub fn generate_raytraced_image(
             shaded_color = add( shaded_color, get_color(r, &mesh, lights, &rnd, 0f32, f32::infinity, 0u));
         }
         shaded_color = scale(gamma_correct(scale( shaded_color, sample_coverage_inv*sample_coverage_inv)), 255f32);
-        color{
-            r: clamp(shaded_color.x, 0f32, 255f32) as u8,
+        {   r: clamp(shaded_color.x, 0f32, 255f32) as u8,
             g: clamp(shaded_color.y, 0f32, 255f32) as u8,
             b: clamp(shaded_color.z, 0f32, 255f32) as u8 }
     })

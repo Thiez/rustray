@@ -43,7 +43,7 @@ fn main()
 
     io::print("Tracing rays... ");
     let start_tracing = std::time::precise_time_s();
-    let pixels = raytracer::generate_raytraced_image(copy model, FOV, WIDTH, HEIGHT, SAMPLE_GRID_SIZE);
+    let pixels = raytracer::generate_raytraced_image(model, FOV, WIDTH, HEIGHT, SAMPLE_GRID_SIZE);
     io::println("Done!");
 
     let outputfile = "./oput.ppm";

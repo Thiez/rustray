@@ -7,19 +7,16 @@ pub type polysoup = { vertices: ~[vec3], indices: ~[uint], normals: ~[vec3] };
 pub type mesh = { polys: polysoup, kd_tree: kd_tree, bounding_box: aabb };
 
 pub enum axis {
-    x,
-    y,
-    z
+    pub x,
+    pub y,
+    pub z
 }
 
-pub struct kd_tree {
-    root: uint,
-    nodes: ~[kd_tree_node]
-}
+pub type kd_tree = { nodes : ~[kd_tree_node], root: uint };
 
 pub enum kd_tree_node {
-    leaf( u32, u32 ),
-    node( axis, f32, u32 )
+    pub leaf( u32, u32 ),
+    pub node( axis, f32, u32 )
 }
 
 fn find_split_plane( distances: &[f32], indices: &[uint], faces: &[uint] ) -> f32 {
@@ -31,7 +28,7 @@ fn find_split_plane( distances: &[f32], indices: &[uint], faces: &[uint] ) -> f3
         face_distances.push(distances[indices[*f*3u+2u]]);
     }
 
-    let mut sorted_distances = sort::merge_sort( face_distances, |a,b| a<b );
+    let mut sorted_distances = sort::merge_sort( face_distances, |a,b| *a<*b );
     let n = sorted_distances.len();
     if n % 2u == 0u {
         sorted_distances[ n/2u ]
@@ -62,7 +59,7 @@ fn split_triangles( splitter: f32, distances: &[f32], indices: &[uint], faces: &
         }
     }
 
-    {l: l, r: r}
+    {l:l, r:r}
 }
 
 fn build_leaf(
@@ -70,7 +67,7 @@ fn build_leaf(
     new_indices: &mut ~[uint],
     indices: &[uint],
     faces: &[uint]
-    ) -> uint {
+) -> uint {
 
     let next_face_ix : u32 = (new_indices.len() as u32) / 3u32;
     kd_tree_nodes.push(leaf( next_face_ix, (faces.len() as u32) ));
@@ -220,7 +217,7 @@ pub fn read_mesh(fname: &str) -> mesh {
     let rootnode  = build_kd_tree(
                         &mut nodes,
                         &mut new_indices,
-                        50u,
+                        100u,
                         xdists,
                         ydists,
                         zdists,
@@ -228,7 +225,7 @@ pub fn read_mesh(fname: &str) -> mesh {
                         aabbmax,
                         polys.indices,
                         faces);
-    { polys: {vertices: transformed_verts, indices: new_indices, .. polys}, kd_tree: kd_tree{ root: rootnode, nodes: nodes} , bounding_box: {min: aabbmin, max: aabbmax} }
+    { polys: {vertices: transformed_verts, indices: new_indices, .. polys}, kd_tree: { nodes: nodes, root: rootnode } , bounding_box: {min: aabbmin, max: aabbmax} }
 
 }
 
@@ -261,7 +258,7 @@ fn read_polysoup(fname: &str) -> polysoup {
 
         if tokens[0] == ~"v"{
             assert tokens.len() == 4u;
-            let v = vec3(    option::get(float::from_str(tokens[1])) as f32,
+            let v = vec3(   option::get(float::from_str(tokens[1])) as f32,
                             option::get(float::from_str(tokens[2])) as f32,
                             option::get(float::from_str(tokens[3])) as f32);
             assert v.x != f32::NaN;
@@ -276,7 +273,7 @@ fn read_polysoup(fname: &str) -> polysoup {
                 let mut face_triangles = ~[];
 
                 if tokens.len() == 4u {
-                    let (i0,i1,i2) = (    parse_faceindex(copy tokens[1]),
+                    let (i0,i1,i2) = (  parse_faceindex(copy tokens[1]),
                                         parse_faceindex(copy tokens[2]),
                                         parse_faceindex(copy tokens[3]) );
 
@@ -319,7 +316,7 @@ fn read_polysoup(fname: &str) -> polysoup {
         }
     }
 
-    return {    vertices: vertices,
-            indices: indices,
-            normals: vec::map( vert_normals, |v| normalized(*v) ) };
+    {  vertices: vertices,
+       indices: indices,
+       normals: vert_normals.map(|v| normalized(*v) ) }
 }
