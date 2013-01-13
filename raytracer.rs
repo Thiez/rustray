@@ -572,6 +572,7 @@ fn gamma_correct( v : vec3 ) -> vec3 {
 }
 
 struct TracetaskData {
+    taskNum: uint,
 	meshARC: std::arc::ARC<model::mesh>,
 	horizontalFOV: f32,
 	width: uint,
@@ -586,6 +587,7 @@ struct TracetaskData {
 
 #[inline(always)]
 fn tracetask(data: ~TracetaskData) {
+    assert data.height_start < data.height_stop;
     let mesh = std::arc::get(&data.meshARC);
     let horizontalFOV = data.horizontalFOV;
     let width = data.width;
@@ -595,7 +597,7 @@ fn tracetask(data: ~TracetaskData) {
     let mut lights = ~[]; lights.push_all(data.lights);
 	let mut img_pixels = vec::with_capacity(data.width * (data.height_stop - data.height_start));
     let rnd = get_rand_env();
-
+    let start_tracing = std::time::precise_time_s();
 	for uint::range( data.height_start, data.height_stop ) |row| {
 		for uint::range( 0u, width ) |column| {
             let mut shaded_color = vec3(0f32,0f32,0f32);
@@ -612,6 +614,8 @@ fn tracetask(data: ~TracetaskData) {
             img_pixels.push(pixel)
 		}
 	}
+    let stop_tracing = std::time::precise_time_s();
+    io::print(fmt!("[%?]: Tracing took %?\n",data.taskNum, stop_tracing - start_tracing));
 	data.channel.send(img_pixels);
 }
 
@@ -636,6 +640,7 @@ pub fn generate_raytraced_image(
         let mut height_stop = (i+1) * step_size;
         if (height - height_stop < step_size) { height_stop = height };
         let ttd = ~TracetaskData{
+            taskNum: i,
             meshARC: meshARC.clone(),
             horizontalFOV: horizontalFOV,
             width: width,
@@ -648,6 +653,7 @@ pub fn generate_raytraced_image(
             channel: c
         };
         task::spawn_with(ttd, tracetask);
+        //tracetask(ttd);
         ports.push(p);
     };
     task::yield();

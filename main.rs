@@ -41,7 +41,7 @@ fn main()
                 model.polys.indices.len()/3u,
                 depth, count));
 
-    io::print("Tracing rays... ");
+    io::println("Tracing rays... ");
     let start_tracing = std::time::precise_time_s();
     let pixels = raytracer::generate_raytraced_image(model, FOV, WIDTH, HEIGHT, SAMPLE_GRID_SIZE);
     io::println("Done!");
