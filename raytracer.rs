@@ -597,7 +597,7 @@ fn tracetask(data: ~TracetaskData) {
     let mut lights = ~[]; lights.push_all(data.lights);
 	let mut img_pixels = vec::with_capacity(data.width * (data.height_stop - data.height_start));
     let rnd = get_rand_env();
-    let start_tracing = std::time::precise_time_s();
+    //let start_tracing = std::time::precise_time_s();
 	for uint::range( data.height_start, data.height_stop ) |row| {
 		for uint::range( 0u, width ) |column| {
             let mut shaded_color = vec3(0f32,0f32,0f32);
@@ -614,8 +614,8 @@ fn tracetask(data: ~TracetaskData) {
             img_pixels.push(pixel)
 		}
 	}
-    let stop_tracing = std::time::precise_time_s();
-    io::print(fmt!("[%?]: Tracing took %?\n",data.taskNum, stop_tracing - start_tracing));
+    //let stop_tracing = std::time::precise_time_s();
+    //io::print(fmt!("[%?]: Tracing took %?\n",data.taskNum, stop_tracing - start_tracing));
 	data.channel.send(img_pixels);
 }
 
@@ -635,7 +635,7 @@ pub fn generate_raytraced_image(
     let meshARC = std::arc::ARC(mesh);
     for uint::range(0,4) |i| {
         let (p,c): (pipes::Port<~[Color]>,pipes::Chan<~[Color]>) = pipes::stream();
-        let step_size = (width * height) / 4;
+        let step_size = height / 4;
         let height_start = i * step_size;
         let mut height_stop = (i+1) * step_size;
         if (height - height_stop < step_size) { height_stop = height };
@@ -659,7 +659,9 @@ pub fn generate_raytraced_image(
     task::yield();
     let mut result: ~[Color] = ~[];
     for ports.each() |p| {
-        result.push_all( p.recv() );
+        let chunk = p.recv();
+        //io::println(fmt!("Received chunk, size: %? bytes", chunk.len()));
+        result.push_all( chunk );
     }
     result
     /*

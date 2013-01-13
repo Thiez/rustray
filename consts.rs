@@ -1,6 +1,6 @@
 // TODO: These things should all be overridable by the command line
-const WIDTH : uint = 1024u;
-const HEIGHT : uint = 1024u;
+const WIDTH : uint = 128u;
+const HEIGHT : uint = 128u;
 const FOV : f32 = 3.14159f32 / 3f32 ;
 const SAMPLE_GRID_SIZE : uint = 1u;
 const NUM_GI_SAMPLES_SQRT: uint = 4u;
