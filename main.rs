@@ -43,14 +43,15 @@ fn main()
 
     io::print("Tracing rays... ");
     let start_tracing = std::time::precise_time_s();
-    let pixels = raytracer::generate_raytraced_image(copy model, FOV, WIDTH, HEIGHT, SAMPLE_GRID_SIZE);
+    let pixels = raytracer::generate_raytraced_image(model, FOV, WIDTH, HEIGHT, SAMPLE_GRID_SIZE);
     io::println("Done!");
-
+    let end_tracing = std::time::precise_time_s();
+    
     let outputfile = "./oput.ppm";
     io::print(~"Writing \"" + outputfile + "\"...");
     write_ppm( outputfile, WIDTH, HEIGHT, pixels );
     io::println("Done!");
 
     let end = std::time::precise_time_s();
-    io::print(fmt!("Total time: %3.3fs, of which tracing: %3.3f\n", end - start, end - start_tracing) );
+    io::print(fmt!("Total time: %3.3fs, of which tracing: %3.3f\n", end - start, end_tracing - start_tracing) );
 }
