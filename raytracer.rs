@@ -619,23 +619,48 @@ fn tracetask(data: ~TracetaskData) {
 	data.channel.send(img_pixels);
 }
 
-pub fn generate_raytraced_image(
+pub fn generate_raytraced_image_single(
     mesh: model::mesh,
     horizontalFOV: f32,
     width: uint,
     height: uint,
-    sample_grid_size: uint) -> ~[Color]
+    sample_grid_size: uint,
+    sample_coverage_inv: f32,
+    lights: ~[light]) -> ~[Color]
 {
-    let sample_coverage_inv = 1f32 / (sample_grid_size as f32);
     let rnd = get_rand_env();
+    for_each_pixel(width, height, |x,y| {
+        let mut shaded_color = vec3(0f32,0f32,0f32);
+        
+        do sample_stratified_2d(&rnd, sample_grid_size, sample_grid_size) |u,v| {
+            let sample = match sample_grid_size { 1u => (0f32,0f32), _ => (u-0.5f32,v-0.5f32) };
+            let r = &get_ray(horizontalFOV, width, height, x, y, sample );
+            shaded_color = add( shaded_color, get_color(r, &mesh, lights, &rnd, 0f32, f32::infinity, 0u));
+        }
+        shaded_color = scale(gamma_correct(scale( shaded_color, sample_coverage_inv*sample_coverage_inv)), 255f32);
+        Color{
+            r: clamp(shaded_color.x, 0f32, 255f32) as u8,
+            g: clamp(shaded_color.y, 0f32, 255f32) as u8,
+            b: clamp(shaded_color.z, 0f32, 255f32) as u8 }
+    })
+}
 
-    let lights = ~[  make_light(vec3(-3f32, 3f32, 0f32),10f32, 0.3f32, vec3(1f32,1f32,1f32)) ]; //,
-                    //make_light(vec3(0f32, 0f32, 0f32), 10f32, 0.25f32, vec3(1f32,1f32,1.0f32))];
+pub fn generate_raytraced_image_multi(
+    mesh: model::mesh,
+    horizontalFOV: f32,
+    width: uint,
+    height: uint,
+    sample_grid_size: uint,
+    sample_coverage_inv: f32,
+    lights: ~[light],
+    num_tasks: uint) -> ~[Color]
+{
+    io::print(fmt!("using %? tasks ... ", num_tasks));
     let mut ports: ~[pipes::Port<~[Color]>] = ~[];
     let meshARC = std::arc::ARC(mesh);
-    for uint::range(0,4) |i| {
+    for uint::range(0,num_tasks) |i| {
         let (p,c): (pipes::Port<~[Color]>,pipes::Chan<~[Color]>) = pipes::stream();
-        let step_size = height / 4;
+        let step_size = height / num_tasks;
         let height_start = i * step_size;
         let mut height_stop = (i+1) * step_size;
         if (height - height_stop < step_size) { height_stop = height };
@@ -653,7 +678,6 @@ pub fn generate_raytraced_image(
             channel: c
         };
         task::spawn_with(ttd, tracetask);
-        //tracetask(ttd);
         ports.push(p);
     };
     task::yield();
@@ -664,19 +688,29 @@ pub fn generate_raytraced_image(
         result.push_all( chunk );
     }
     result
-    /*
-    for_each_pixel(width, height, |x,y| {
-        let mut shaded_color = vec3(0f32,0f32,0f32);
-        
-        do sample_stratified_2d(&rnd, sample_grid_size, sample_grid_size) |u,v| {
-            let sample = match sample_grid_size { 1u => (0f32,0f32), _ => (u-0.5f32,v-0.5f32) };
-            let r = &get_ray(horizontalFOV, width, height, x, y, sample );
-            shaded_color = add( shaded_color, get_color(r, &mesh, lights, &rnd, 0f32, f32::infinity, 0u));
-        }
-        shaded_color = scale(gamma_correct(scale( shaded_color, sample_coverage_inv*sample_coverage_inv)), 255f32);
-        Color{
-            r: clamp(shaded_color.x, 0f32, 255f32) as u8,
-            g: clamp(shaded_color.y, 0f32, 255f32) as u8,
-            b: clamp(shaded_color.z, 0f32, 255f32) as u8 }
-    })*/
+}
+
+extern {
+    fn rust_num_threads() -> libc::uintptr_t;
+}
+
+pub fn generate_raytraced_image(
+    mesh: model::mesh,
+    horizontalFOV: f32,
+    width: uint,
+    height: uint,
+    sample_grid_size: uint) -> ~[Color]
+{
+    let sample_coverage_inv = 1f32 / (sample_grid_size as f32);
+    let lights = ~[  make_light(vec3(-3f32, 3f32, 0f32),10f32, 0.3f32, vec3(1f32,1f32,1f32)) ]; //,
+                    //make_light(vec3(0f32, 0f32, 0f32), 10f32, 0.25f32, vec3(1f32,1f32,1.0f32))];
+    let mut num_tasks = match NUM_THREADS {
+      0 => rust_num_threads() as uint,
+      n => n
+    };
+    if num_tasks > width { num_tasks = width };
+    match num_tasks {
+    1 => generate_raytraced_image_single(mesh,horizontalFOV,width,height,sample_grid_size,sample_coverage_inv,lights),
+    n => generate_raytraced_image_multi(mesh,horizontalFOV,width,height,sample_grid_size,sample_coverage_inv,lights,n)
+    }   
 }
