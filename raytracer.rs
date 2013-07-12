@@ -3,6 +3,7 @@ use math3d::*;
 use concurrent;
 use model;
 use std::*;
+use std::unstable::simd::{f32x4};
 use std::rand::{RngUtil,Rng,task_rng};
 
 use extra;
@@ -27,15 +28,26 @@ fn get_ray( horizontalFOV: f32, width: uint, height: uint, x: uint, y: uint, sam
     let dirx = (x as f32) - ((width/2) as f32) + jitterx;
     let diry = -((y as f32) - ((height/2) as f32)) + jittery;
     let dirz = -((width/2u) as f32) / (horizontalFOV*0.5).tan();
-    Ray{ origin: vec3(0.0, 0.0, 1.0),
-      dir: normalized( vec3( dirx, diry, dirz) ) }
+    Ray{ origin: f32x4(0.0, 0.0, 1.0, 0.0),
+      dir: normalized( f32x4( dirx, diry, dirz, 0.0) ) }
 }
 
-#[deriving(Clone)]
 struct rand_env {
     floats: ~[f32],
     disk_samples: ~[(f32,f32)],
-    hemicos_samples: ~[vec3]
+    hemicos_samples: ~[f32x4]
+}
+
+impl Clone for rand_env {
+    fn clone(&self) -> rand_env {
+        let mut samples = ~[];
+        for self.hemicos_samples.iter().advance |s| {
+            samples.push(*s);
+        }
+        rand_env{   floats: self.floats.clone(),
+                    disk_samples: self.disk_samples.clone(),
+                    hemicos_samples: samples }
+    }
 }
 
 fn get_rand_env() -> rand_env {
@@ -116,7 +128,7 @@ fn sample_stratified_2d( rnd: &rand_env, m: uint, n : uint, body: &fn(f32,f32) )
 }
 
 #[inline(always)]
-fn sample_cosine_hemisphere( rnd: &rand_env, n: vec3, body: &fn(vec3) ) {
+fn sample_cosine_hemisphere( rnd: &rand_env, n: f32x4, body: &fn(f32x4) ) {
     let mut rng = rand::task_rng();
     let rot_to_up = rotate_to_up(n);
     let random_rot = rotate_y( rnd.floats[ rng.next() as uint % rnd.floats.len() ] ); // random angle about y
@@ -145,12 +157,12 @@ fn trace_kd_tree(
     kd_tree_nodes: &[model::kd_tree_node],
     kd_tree_root: uint,
     r: &Ray,
-    inv_dir: vec3,
+    inv_dir: f32x4,
     inmint: f32,
     inmaxt: f32 )
     -> Option<(HitResult, uint)> {
 
-    let mut res : Option<(HitResult, uint)> = option::None;
+    let mut res : Option<(HitResult, uint)> = None;
     let mut closest_hit = inmaxt;
 
     let mut stack : ~[(uint, f32, f32)] = ~[];
@@ -181,12 +193,12 @@ fn trace_kd_tree(
                     let new_hit_result = r.intersect(t);
 
                     match (res, new_hit_result){
-                        (option::None(), option::Some(hr)) => {
-                            res = option::Some((hr,tri_index as uint));
+                        (None(), Some(hr)) => {
+                            res = Some((hr,tri_index as uint));
                             closest_hit = hr.t;
                         }
-                        (option::Some((hr1,_)), option::Some(hr2)) if hr1.t > hr2.t => {
-                            res = option::Some((hr2,tri_index as uint));
+                        (Some((hr1,_)), Some(hr2)) if hr1.t > hr2.t => {
+                            res = Some((hr2,tri_index as uint));
                             closest_hit = hr2.t;
                         }
                         _ => {}
@@ -205,11 +217,12 @@ fn trace_kd_tree(
             }
             model::node(axis, splitter, right_tree) => {
                 // find the scalar direction/origin for the current axis
-                let (inv_dir_scalar, origin) = match axis {
-                    model::x() => { (inv_dir.x, r.origin.x) }
-                    model::y() => { (inv_dir.y, r.origin.y) }
-                    model::z() => { (inv_dir.z, r.origin.z) }
+                let selector = match axis {
+                    model::x() => 0,
+                    model::y() => 1,
+                    model::z() => 2,
                 };
+                let (inv_dir_scalar, origin) = (select(inv_dir,selector), select(r.origin,selector));
                 // figure out which side of the spliting plane the ray origin is
                 // i.e. which child we need to test first.
                 let (near,far) = if origin < splitter || (origin == splitter && inv_dir_scalar >= 0.0) {
@@ -241,7 +254,7 @@ fn trace_kd_tree_shadow(
     kd_tree_nodes: &[model::kd_tree_node],
     kd_tree_root: uint,
     r: &Ray,
-    inv_dir: vec3,
+    inv_dir: f32x4,
     inmint: f32,
     inmaxt: f32 )
     -> bool {
@@ -275,11 +288,12 @@ fn trace_kd_tree_shadow(
             model::node(axis, splitter, right_tree) => {
 
                 // find the scalar direction/origin for the current axis
-                let (inv_dir_scalar, origin) = match axis {
-                    model::x() => { (inv_dir.x, r.origin.x) }
-                    model::y() => { (inv_dir.y, r.origin.y) }
-                    model::z() => { (inv_dir.z, r.origin.z) }
+                let selector = match axis {
+                    model::x() => 0,
+                    model::y() => 1,
+                    model::z() => 2,
                 };
+                let (inv_dir_scalar, origin) = (select(inv_dir,selector), select(r.origin,selector));
 
                 // figure out which side of the spliting plane the ray origin is
                 // i.e. which child we need to test first.
@@ -310,7 +324,7 @@ fn trace_kd_tree_shadow(
 #[inline]
 fn trace_soup( polys: &model::polysoup, r: &Ray) -> Option<(HitResult, uint)>{
 
-    let mut res : Option<(HitResult, uint)> = option::None;
+    let mut res : Option<(HitResult, uint)> = None;
 
     for uint::range(0, polys.indices.len() / 3) |tri_ix| {
         let tri = &get_triangle( polys, tri_ix);
@@ -318,12 +332,12 @@ fn trace_soup( polys: &model::polysoup, r: &Ray) -> Option<(HitResult, uint)>{
         let new_hit = r.intersect(tri);
 
         match (res, new_hit) {
-            (option::None(),option::Some(hit)) => {
-                res = option::Some((hit, tri_ix));
+            (None(),Some(hit)) => {
+                res = Some((hit, tri_ix));
             }
-            (option::Some((old_hit,_)), option::Some(hit))
+            (Some((old_hit,_)), Some(hit))
                         if hit.t < old_hit.t && hit.t > 0.0 => {
-                res = option::Some((hit, tri_ix));
+                res = Some((hit, tri_ix));
             }
             _ => {}
         }
@@ -333,46 +347,46 @@ fn trace_soup( polys: &model::polysoup, r: &Ray) -> Option<(HitResult, uint)>{
 }
 
 struct light {
-    pos: vec3,
+    pos: f32x4,
     strength: f32,
     radius: f32,
-    color: vec3
+    color: f32x4
 }
 
-fn make_light( pos: vec3, strength: f32, radius: f32, color: vec3 ) -> light {
+fn make_light( pos: f32x4, strength: f32, radius: f32, color: f32x4 ) -> light {
     light{ pos: pos, strength: strength, radius: radius, color: color }
 }
 
 #[inline(always)]
-fn direct_lighting( lights: &[light], pos: vec3, n: vec3, view_vec: vec3, rnd: &rand_env, depth: uint, occlusion_probe: &fn(vec3) -> bool ) -> vec3 {
+fn direct_lighting( lights: &[light], pos: f32x4, n: f32x4, view_vec: f32x4, rnd: &rand_env, depth: uint, occlusion_probe: &fn(f32x4) -> bool ) -> f32x4 {
 
-    let mut direct_light = vec3(0.0,0.0,0.0);
+    let mut direct_light = f32x4(0.0, 0.0, 0.0, 0.0);
     for lights.iter().advance |l| {
 
         // compute shadow contribution
         let mut shadow_contrib = 0.0;
         let num_samples = match depth { 0 => NUM_LIGHT_SAMPLES, _ => 1 };    // do one tap in reflections and GI
 
-        let rot_to_up = rotate_to_up(normalized(sub(pos,l.pos)));
+        let rot_to_up = rotate_to_up(normalized(pos - l.pos));
         let shadow_sample_weight = 1.0 / (num_samples as f32);
         do sample_disk(rnd ,num_samples) |u,v| {        // todo: stratify this
 
             // scale and rotate disk sample, and position it at the light's location
-            let sample_pos = add(l.pos,transform(rot_to_up, vec3(u*l.radius,0f32,v*l.radius) ));
+            let sample_pos = l.pos + transform(rot_to_up, f32x4(u*l.radius, 0.0, v*l.radius, 0.0) );
 
-            if !occlusion_probe( sub(sample_pos, pos)) {
+            if !occlusion_probe( sample_pos - pos) {
                 shadow_contrib += shadow_sample_weight;
             }
         }
 
-        let light_vec = sub(l.pos, pos);
+        let light_vec = l.pos - pos;
         let light_contrib =
             if shadow_contrib == 0.0 {
-                vec3(0.0, 0.0, 0.0)
+                f32x4(0.0, 0.0, 0.0, 0.0)
             } else {
 
                 let light_vec_n = normalized(light_vec);
-                let half_vector = normalized(add(light_vec_n, view_vec));
+                let half_vector = normalized(light_vec_n + view_vec);
 
                 let s = dot(n,half_vector);
                 let specular = s.pow(&175.0);
@@ -384,7 +398,7 @@ fn direct_lighting( lights: &[light], pos: vec3, n: vec3, view_vec: vec3, rnd: &
                 scale(l.color, intensity)
             };
 
-        direct_light = add(direct_light, light_contrib);
+        direct_light = direct_light + light_contrib;
     }
 
     return direct_light;
@@ -392,18 +406,18 @@ fn direct_lighting( lights: &[light], pos: vec3, n: vec3, view_vec: vec3, rnd: &
 
 #[inline]
 fn shade(
-    pos: vec3, n: vec3, n_face: vec3, r: &Ray, color: vec3, reflectivity: f32, lights: &[light], rnd: &rand_env, depth: uint,
-    occlusion_probe: &fn(vec3) -> bool,
-    color_probe: &fn(vec3) -> vec3 ) -> vec3 {
+    pos: f32x4, n: f32x4, n_face: f32x4, r: &Ray, color: f32x4, reflectivity: f32, lights: &[light], rnd: &rand_env, depth: uint,
+    occlusion_probe: &fn(f32x4) -> bool,
+    color_probe: &fn(f32x4) -> f32x4 ) -> f32x4 {
 
-    let view_vec = normalized(sub(r.origin, pos));
+    let view_vec = normalized(r.origin - pos);
 
     // pass in n or n_face for smooth/flat shading
     let shading_normal = if USE_SMOOTH_NORMALS_FOR_DIRECT_LIGHTING { n } else { n_face };
 
     let direct_light = direct_lighting(lights, pos, shading_normal, view_vec, rnd, depth, occlusion_probe);
-    let reflection = sub(scale(shading_normal, dot(view_vec, shading_normal)*2.0), view_vec);
-    let rcolor = if reflectivity > 0.001 { color_probe( reflection ) } else { vec3(0.0,0.0,0.0) };
+    let reflection = scale(shading_normal, dot(view_vec, shading_normal)*2.0) - view_vec;
+    let rcolor = if reflectivity > 0.001 { color_probe( reflection ) } else { f32x4(0.0, 0.0, 0.0, 0.0) };
 
     let mut ambient;
     //ambient = vec3(0.5f32,0.5f32,0.5f32);
@@ -422,49 +436,49 @@ fn shade(
 
     // Final gather GI
     let gi_normal = if USE_SMOOTH_NORMALS_FOR_GI { n } else { n_face };
-    ambient = vec3(0.0,0.0,0.0);
+    ambient = f32x4(0.0, 0.0, 0.0, 0.0);
     if depth == 0 && NUM_GI_SAMPLES_SQRT > 0 {
         do sample_cosine_hemisphere( rnd, gi_normal ) |sample_vec| {
-            ambient = add( ambient, color_probe( sample_vec ) );
+            ambient = ambient + color_probe( sample_vec );
         };
         ambient = scale(ambient, 1.0 / (((NUM_GI_SAMPLES_SQRT * NUM_GI_SAMPLES_SQRT) as f32) * f32::consts::pi ));
     }
 
-    lerp( mul(color,add(direct_light, ambient)), rcolor, reflectivity)
+    lerp( color * (direct_light + ambient), rcolor, reflectivity)
 }
 
 
 struct intersection {
-    pos: vec3,
-    n: vec3,
-    n_face: vec3,
-    color: vec3,
+    pos: f32x4,
+    n: f32x4,
+    n_face: f32x4,
+    color: f32x4,
     reflectivity: f32
 }
 
 #[inline]
 fn trace_checkerboard( checkerboard_height: f32, r : &Ray, mint: f32, maxt: f32) -> (Option<intersection>, f32) {
     // trace against checkerboard first
-    let checker_hit_t = (checkerboard_height - r.origin.y) / r.dir.y;
+    let checker_hit_t = (checkerboard_height - select(r.origin,1) / select(r.dir,1));
 
     // compute checkerboard color, if we hit the floor plane
     if checker_hit_t > mint && checker_hit_t < maxt {
 
-            let pos = add(r.origin,scale(r.dir, checker_hit_t));
+        let pos = r.origin + scale(r.dir, checker_hit_t);
 
-            // hacky checkerboard pattern
-            let (u,v) = ((pos.x*5.0).floor() as int, (pos.z*5.0).floor() as int);
-            let is_white = (u + v) % 2 == 0;
-            let color = if is_white { vec3(1.0,1.0,1.0) } else { vec3(1.0,0.5,0.5) };
-            let intersection = option::Some( intersection{
-                        pos: pos,
-                        n: vec3(0.0,1.0,0.0),
-                        n_face: vec3(0.0,1.0,0.0),
-                        color: color,
-                        reflectivity: if is_white {0.3} else {0.0} } );
-            (intersection, checker_hit_t)
+        // hacky checkerboard pattern
+        let (u,v) = ((select(pos,0)*5.0).floor() as int, (select(pos,2)*5.0).floor() as int);
+        let is_white = (u + v) % 2 == 0;
+        let color = if is_white { f32x4(1.0, 1.0, 1.0, 0.0) } else { f32x4(1.0, 0.5, 0.5, 0.0) };
+        let intersection = Some( intersection{
+                    pos: pos,
+                    n: f32x4(0.0, 1.0, 0.0, 0.0),
+                    n_face: f32x4(0.0, 1.0, 0.0, 0.0),
+                    color: color,
+                    reflectivity: if is_white {0.3} else {0.0} } );
+        (intersection, checker_hit_t)
     } else {
-        (option::None, maxt)
+        (None, maxt)
     }
 }
 
@@ -473,7 +487,7 @@ fn trace_ray( r : &Ray, mesh : &model::mesh, mint: f32, maxt: f32) -> Option<int
 
     let use_kd_tree = true;
 
-    let y_size = sub(mesh.bounding_box.max, mesh.bounding_box.min).y;
+    let y_size = select(mesh.bounding_box.max - mesh.bounding_box.min, 1);
 
     // compute checkerboard color, if we hit the floor plane
     let (checker_intersection, new_maxt) = trace_checkerboard(-y_size*0.5,r,mint,maxt);
@@ -492,30 +506,29 @@ fn trace_ray( r : &Ray, mesh : &model::mesh, mint: f32, maxt: f32) -> Option<int
     };
 
     match trace_result {
-        option::Some((hit_info, tri_ix)) if hit_info.t > 0.0 => {
-            let pos = add( r.origin, scale(r.dir, hit_info.t));
+        Some((hit_info, tri_ix)) if hit_info.t > 0.0 => {
+            let pos = r.origin + scale(r.dir, hit_info.t);
 
             let (i0,i1,i2) = (  mesh.polys.indices[tri_ix*3  ],
                                 mesh.polys.indices[tri_ix*3+1],
                                 mesh.polys.indices[tri_ix*3+2] );
 
             // interpolate vertex normals...
-            let n = normalized(
-                    add(    scale( mesh.polys.normals[i0], hit_info.barycentric.z),
-                    add(    scale( mesh.polys.normals[i1], hit_info.barycentric.x),
-                            scale( mesh.polys.normals[i2], hit_info.barycentric.y))));
+            let n = normalized( scale( mesh.polys.normals[i0], select(hit_info.barycentric,2)) +
+                                scale( mesh.polys.normals[i1], select(hit_info.barycentric,0)) +
+                                scale( mesh.polys.normals[i2], select(hit_info.barycentric,1)));
 
             // compute face-normal
             let (v0,v1,v2) = (  mesh.polys.vertices[i0],
                                 mesh.polys.vertices[i1],
                                 mesh.polys.vertices[i2] );
-            let n_face = normalized( cross(sub(v1,v0), sub(v2,v0)));
+            let n_face = normalized( (v1 - v0) * (v2 - v0));
 
-            option::Some( intersection{
+            Some( intersection{
                     pos: pos,
                     n: n,
                     n_face: n_face,
-                    color: vec3(1.0,1.0,1.0),
+                    color: f32x4(1.0, 1.0, 1.0, 0.0),
                     reflectivity: 0.0 } )
         }
         _ => {
@@ -527,7 +540,7 @@ fn trace_ray( r : &Ray, mesh : &model::mesh, mint: f32, maxt: f32) -> Option<int
 #[inline]
 fn trace_ray_shadow( r: &Ray, mesh: &model::mesh, mint: f32, maxt: f32) -> bool {
 
-    let y_size = sub(mesh.bounding_box.max, mesh.bounding_box.min).y;
+    let y_size = select(mesh.bounding_box.max - mesh.bounding_box.min,2);
 
     // compute checkerboard color, if we hit the floor plane
     let (checker_intersection, new_maxt) = trace_checkerboard(-y_size*0.5,r,mint,maxt);
@@ -547,17 +560,17 @@ fn trace_ray_shadow( r: &Ray, mesh: &model::mesh, mint: f32, maxt: f32) -> bool 
 
 
 #[inline(always)]
-fn get_color( r: &Ray, mesh: &model::mesh, lights: &[light], rnd: &rand_env, tmin: f32, tmax: f32, depth: uint) -> vec3 {
-    let theta = dot( vec3(0.0,1.0,0.0), r.dir );
-    let default_color = vec3(clamp(1.0-theta*4.0,0.0,0.75)+0.25, clamp(0.5-theta*3.0,0.0,0.75)+0.25, theta);    // fake sky colour
+fn get_color( r: &Ray, mesh: &model::mesh, lights: &[light], rnd: &rand_env, tmin: f32, tmax: f32, depth: uint) -> f32x4 {
+    let theta = dot( f32x4(0.0, 1.0, 0.0, 0.0), r.dir );
+    let default_color = f32x4(clamp(1.0-theta*4.0,0.0,0.75)+0.25, clamp(0.5-theta*3.0,0.0,0.75)+0.25, theta, 0.0);    // fake sky colour
 
     if depth >= MAX_TRACE_DEPTH {
         return default_color;
     }
     
     match trace_ray( r, mesh, tmin, tmax ) {
-        option::Some(intersection{pos,n,n_face,color,reflectivity}) => {
-            let surface_origin = add(pos, scale(n_face, 0.000002));
+        Some(intersection{pos,n,n_face,color,reflectivity}) => {
+            let surface_origin = pos + scale(n_face, 0.000002);
 
             shade(pos, n, n_face, r, color, reflectivity, lights, rnd, depth,
             |occlusion_vec| {
@@ -576,10 +589,12 @@ fn get_color( r: &Ray, mesh: &model::mesh, lights: &[light], rnd: &rand_env, tmi
 }
 
 #[inline]
-fn gamma_correct( v : vec3 ) -> vec3 {
-    vec3( v.x.pow( &(1.0/2.2) ),
-          v.y.pow( &(1.0/2.2) ),
-          v.z.pow( &(1.0/2.2) ))
+fn gamma_correct( v : f32x4 ) -> f32x4 {
+    let f32x4(x,y,z,_) = v;
+    f32x4( x.pow( &(1.0/2.2) ),
+           y.pow( &(1.0/2.2) ),
+           z.pow( &(1.0/2.2) ),
+           0.0)
 }
 
 struct TracetaskData {
@@ -606,17 +621,17 @@ fn tracetask(data: ~TracetaskData) -> ~[Color] {
             	let mut img_pixels = vec::with_capacity(width);
             	for uint::range( height_start, height_stop ) |row| {
 	                for uint::range( 0, width ) |column| {
-                        let mut shaded_color = vec3(0.0,0.0,0.0);
+                        let mut shaded_color = f32x4(0.0, 0.0, 0.0, 0.0);
                         
                         do sample_stratified_2d(rnd, sample_grid_size, sample_grid_size) |u,v| {
                             let sample = match sample_grid_size { 1 => (0.0,0.0), _ => (u-0.5,v-0.5) };
                             let r = &get_ray(horizontalFOV, width, height, column, row, sample );
-                            shaded_color = add( shaded_color, get_color(r, mesh, lights, rnd, 0.0, f32::infinity, 0));
+                            shaded_color = shaded_color + get_color(r, mesh, lights, rnd, 0.0, f32::infinity, 0);
                         }
                         shaded_color = scale(gamma_correct(scale( shaded_color, sample_coverage_inv * sample_coverage_inv)), 255.0);
-                        let pixel = Color{  r: clamp(shaded_color.x, 0.0, 255.0) as u8,
-                                            g: clamp(shaded_color.y, 0.0, 255.0) as u8,
-                                            b: clamp(shaded_color.z, 0.0, 255.0) as u8 };
+                        let pixel = Color{  r: clamp(select(shaded_color,0), 0.0, 255.0) as u8,
+                                            g: clamp(select(shaded_color,1), 0.0, 255.0) as u8,
+                                            b: clamp(select(shaded_color,2), 0.0, 255.0) as u8 };
                         img_pixels.push(pixel)
 	                }
                 }
@@ -636,18 +651,18 @@ pub fn generate_raytraced_image_single(
 {
     let rnd = get_rand_env();
     for_each_pixel(width, height, |x,y| {
-        let mut shaded_color = vec3(0.0,0.0,0.0);
+        let mut shaded_color = f32x4(0.0, 0.0, 0.0, 0.0);
         
         do sample_stratified_2d(&rnd, sample_grid_size, sample_grid_size) |u,v| {
             let sample = match sample_grid_size { 1 => (0.0,0.0), _ => (u-0.5,v-0.5) };
             let r = &get_ray(horizontalFOV, width, height, x, y, sample );
-            shaded_color = add( shaded_color, get_color(r, &mesh, lights, &rnd, 0.0, f32::infinity, 0));
+            shaded_color = shaded_color + get_color(r, &mesh, lights, &rnd, 0.0, f32::infinity, 0);
         }
         shaded_color = scale(gamma_correct(scale( shaded_color, sample_coverage_inv*sample_coverage_inv)), 255f32);
         Color{
-            r: clamp(shaded_color.x, 0.0, 255.0) as u8,
-            g: clamp(shaded_color.y, 0.0, 255.0) as u8,
-            b: clamp(shaded_color.z, 0.0, 255.0) as u8 }
+            r: clamp(select(shaded_color,0), 0.0, 255.0) as u8,
+            g: clamp(select(shaded_color,1), 0.0, 255.0) as u8,
+            b: clamp(select(shaded_color,2), 0.0, 255.0) as u8 }
     })
 }
 
@@ -710,7 +725,7 @@ pub fn generate_raytraced_image(
     sample_grid_size: uint) -> ~[Color]
 {
     let sample_coverage_inv = 1.0 / (sample_grid_size as f32);
-    let lights = ~[  make_light(vec3(-3.0, 3.0, 0.0),10.0, 0.3, vec3(1.0,1.0,1.0)) ]; //,
+    let lights = ~[  make_light(f32x4(-3.0, 3.0, 0.0, 0.0),10.0, 0.3, f32x4(1.0, 1.0, 1.0, 0.0)) ]; //,
                     //make_light(vec3(0f32, 0f32, 0f32), 10f32, 0.25f32, vec3(1f32,1f32,1.0f32))];
     let mut num_tasks = match NUM_THREADS {
       0 => unsafe { rust_num_threads() as uint },
