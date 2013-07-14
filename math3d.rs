@@ -173,8 +173,8 @@ pub fn rotate_to_up( up_vec: f32x4 ) -> mtx33 {
         f32x4(0.0,1.0,0.0,_)    => f32x4(1.0, 0.0, 0.0, 0.0),
         _                       => f32x4(0.0, 1.0, 0.0, 0.0),
     };
-    let right = up_vec * perp;
-    let fwd = right * up_vec;
+    let right = cross(up_vec, perp);
+    let fwd = cross(right, up_vec);
     transposed( mtx33{ r0: right, r1: up_vec, r2: fwd } )
 }
 
