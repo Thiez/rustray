@@ -109,7 +109,7 @@ impl Ray {
     pub fn intersect(&self, t: &Triangle) -> Option<HitResult> {
         let e1 = t.p2 - t.p1;
         let e2 = t.p3 - t.p1;
-        let s1 = self.dir * e2;
+        let s1 = cross(self.dir, e2);
         let divisor = dot(s1,e2);
         
         if divisor == 0.0 {
@@ -130,14 +130,14 @@ impl Ray {
         let b2 = dot(self.dir,s2) * inv_divisor;
         
         if b2 < 0.0 || b1+b2 > 1.0 {
-            return None;
+            return None; // outside triangle
         }
         
         let t = dot(e2,s2) * inv_divisor;
         if t < 0.0 {
-            None
+            None // behind viewer
         } else {
-            Some( HitResult{ barycentric: f32x4(b1,b2,1.0-b1-b2,0.0), t: t } )
+            Some( HitResult{ barycentric: f32x4(b1, b2, 1.0-b1-b2, 0.0), t: t } )
         }
     }
     #[inline]
