@@ -110,8 +110,7 @@ impl Ray {
         let e1 = t.p2 - t.p1;
         let e2 = t.p3 - t.p1;
         let s1 = cross(self.dir, e2);
-        let divisor = dot(s1,e2);
-        
+        let divisor = dot(s1,e1);
         if divisor == 0.0 {
             return None;
         }
@@ -214,5 +213,16 @@ pub fn transposed( m: mtx33 ) -> mtx33 {
         r1: f32x4(a2, b2, c2, 0.0),
         r2: f32x4(a3, b3, c3, 0.0),
     }
+}
+
+#[test]
+pub fn intersection_test()
+{
+    let ray = Ray{ origin: f32x4(0.0, 0.0, 0.0, 0.0), dir: f32x4(0.0,0.0,-1.0, 0.0) };
+    let tri = Triangle{  p1: f32x4(-1.0, -1.0, -1.0, 0.0),
+                    p2: f32x4(1.0, -1.0, -1.0, 0.0),
+                    p3: f32x4(0.0, 2.0, -1.0, 0.0) };
+
+    assert!(ray.intersect(&tri).is_some());
 }
 
