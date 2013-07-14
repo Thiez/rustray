@@ -132,22 +132,15 @@ fn build_kd_tree<'r>(
     let second = f32x4(0.0, 1.0, 0.0, 0.0);
     let third = f32x4(0.0, 0.0, 1.0, 0.0);
     let all = f32x4(1.0, 1.0, 1.0, 1.0);
-    let nFirst = all - first;
-    let nSecond = all - second;
-    let nThird = all - third;
+    let ss = f32x4(s, s, s, 0.0);
     // adjust bounding boxes for children
-    let (m1,m2) = match axis {
-        x => (first,nFirst),
-        y => (second,nSecond),
-        z => (third,nThird),
+    let sel = match axis {
+        x => first,
+        y => second,
+        z => third,
     };
-    let (left_aabbmax,right_aabbmin) = (scale(m1,s)+(aabbmax*m2),scale(m2,s)+(aabbmin*m2));
-//    let (left_aabbmax,right_aabbmin) = match axis {
-//        x => (vec3{x:s, ..aabbmax},vec3{x:s, ..aabbmin}),
-//        y => (vec3{y:s, ..aabbmax},vec3{y:s, ..aabbmin}),
-//        z => (vec3{z:s, ..aabbmax},vec3{z:s, ..aabbmin}),
-//    };
-
+    let (left_aabbmax,right_aabbmin) = ((ss*sel)+(aabbmax*(all-sel)),(ss*sel)+(aabbmin*(all-sel)));
+    
     // allocate node from nodes-array, and recursively build children
     let ix = kd_tree_nodes.len();
     kd_tree_nodes.push( node(axis,0.0,0) );
@@ -298,9 +291,12 @@ fn read_polysoup(fname: &str) -> polysoup {
                             float::from_str(tokens[2]).get() as f32,
                             float::from_str(tokens[3]).get() as f32,
                             0.0);
-//            assert!(v.x != f32::NaN);
-//            assert!(v.y != f32::NaN);
-//            assert!(v.z != f32::NaN);
+            {
+                let f32x4(vx,vy,vz,_) = v;
+                assert!(vx != f32::NaN);
+                assert!(vy != f32::NaN);
+                assert!(vz != f32::NaN);
+            }
 
             vertices.push(v);
             vert_normals.push( f32x4(0.0, 0.0, 0.0, 0.0));

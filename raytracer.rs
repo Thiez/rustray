@@ -459,15 +459,17 @@ struct intersection {
 #[inline]
 fn trace_checkerboard( checkerboard_height: f32, r : &Ray, mint: f32, maxt: f32) -> (Option<intersection>, f32) {
     // trace against checkerboard first
-    let checker_hit_t = (checkerboard_height - select(r.origin,1) / select(r.dir,1));
+    let f32x4(_,originY,_,_) = r.origin;
+    let f32x4(_,dirY,_,_) = r.dir;
+    let checker_hit_t = (checkerboard_height - originY) / dirY;
 
     // compute checkerboard color, if we hit the floor plane
     if checker_hit_t > mint && checker_hit_t < maxt {
 
         let pos = r.origin + scale(r.dir, checker_hit_t);
-
+        let f32x4(posX,_,posZ,_) = pos;
         // hacky checkerboard pattern
-        let (u,v) = ((select(pos,0)*5.0).floor() as int, (select(pos,2)*5.0).floor() as int);
+        let (u,v) = ((posX*5.0).floor() as int, (posZ*5.0).floor() as int);
         let is_white = (u + v) % 2 == 0;
         let color = if is_white { f32x4(1.0, 1.0, 1.0, 0.0) } else { f32x4(1.0, 0.5, 0.5, 0.0) };
         let intersection = Some( intersection{
