@@ -516,15 +516,16 @@ fn trace_ray( r : &Ray, mesh : &model::mesh, mint: f32, maxt: f32) -> Option<int
                                 mesh.polys.indices[tri_ix*3+2] );
 
             // interpolate vertex normals...
-            let n = normalized( scale( mesh.polys.normals[i0], select(hit_info.barycentric,2)) +
-                                scale( mesh.polys.normals[i1], select(hit_info.barycentric,0)) +
-                                scale( mesh.polys.normals[i2], select(hit_info.barycentric,1)));
+            let f32x4(bX,bY,bZ,_) = hit_info.barycentric;
+            let n = normalized( scale( mesh.polys.normals[i0], bZ) +
+                                scale( mesh.polys.normals[i1], bX) +
+                                scale( mesh.polys.normals[i2], bY) );
 
             // compute face-normal
             let (v0,v1,v2) = (  mesh.polys.vertices[i0],
                                 mesh.polys.vertices[i1],
                                 mesh.polys.vertices[i2] );
-            let n_face = normalized( (v1 - v0) * (v2 - v0));
+            let n_face = normalized( cross(v1 - v0, v2 - v0) );
 
             Some( intersection{
                     pos: pos,
