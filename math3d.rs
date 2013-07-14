@@ -171,7 +171,7 @@ pub fn cosine_hemisphere_sample( u: f32, v: f32) -> f32x4 {
 pub fn rotate_to_up( up_vec: f32x4 ) -> mtx33 {
     let perp = match up_vec {
         f32x4(0.0,1.0,0.0,_)    => f32x4(1.0, 0.0, 0.0, 0.0),
-        _                       => f32x4(0.0, 1.0, 0.0, 0.0)
+        _                       => f32x4(0.0, 1.0, 0.0, 0.0),
     };
     let right = up_vec * perp;
     let fwd = right * up_vec;
@@ -185,7 +185,7 @@ pub fn rotate_y(theta: f32) -> mtx33 {
     mtx33 {
         r0: f32x4(ct,  0.0, st,  0.0),
         r1: f32x4(0.0, 1.0, 0.0, 0.0),
-        r2: f32x4(-st, 0.0, ct,  0.0)
+        r2: f32x4(-st, 0.0, ct,  0.0),
     }
 }
 
@@ -200,43 +200,19 @@ pub fn mul_mtx33( a: mtx33, b: mtx33 ) -> mtx33 {
     mtx33 {
         r0: f32x4( dot(a.r0,b.r0), dot(a.r0, b.r1 ), dot(a.r0, b.r2), 0.0 ),
         r1: f32x4( dot(a.r1,b.r0), dot(a.r1, b.r1 ), dot(a.r1, b.r2), 0.0 ),
-        r2: f32x4( dot(a.r2,b.r0), dot(a.r2, b.r1 ), dot(a.r2, b.r2), 0.0 )
+        r2: f32x4( dot(a.r2,b.r0), dot(a.r2, b.r1 ), dot(a.r2, b.r2), 0.0 ),
     }
 }
 
 #[inline(always)]
 pub fn transposed( m: mtx33 ) -> mtx33 {
-    #[inline(always)]
-    fn _select( a: f32x4, n: uint ) -> f32x4 {
-        let t = match n {
-            0   => {
-                    let f32x4(t,_,_,_) = a;
-                    t
-                }
-            1   => {
-                    let f32x4(_,t,_,_) = a;
-                    t
-                }
-            2   => {
-                    let f32x4(_,_,t,_) = a;
-                    t
-                }
-            _ => 0.0
-        };
-        f32x4(t,t,t,0.0)
-    }
-    #[inline(always)]
-    fn singleTranspose( a: f32x4, b: f32x4, c: f32x4, n: uint ) -> f32x4 {
-        let first  = f32x4(1.0, 0.0, 0.0, 0.0);
-        let second = f32x4(0.0, 1.0, 0.0, 0.0);
-        let third  = f32x4(0.0, 0.0, 1.0, 0.0);
-        (_select(a,n) * first) + (_select(b,n) * second) + (_select(c,n) * third)
-//        f32x4( select(a,n), select(b,n), select(c,n), 0.0)
-    }
+    let f32x4(a1,a2,a3,_) = m.r0;
+    let f32x4(b1,b2,b3,_) = m.r1;
+    let f32x4(c1,c2,c3,_) = m.r2;
     mtx33 {
-        r0: singleTranspose( m.r0, m.r1, m.r2, 0 ),
-        r1: singleTranspose( m.r0, m.r1, m.r2, 1 ),
-        r2: singleTranspose( m.r0, m.r1, m.r2, 2 ),
+        r0: f32x4(a1, b1, c1, 0.0),
+        r1: f32x4(a2, b2, c2, 0.0),
+        r2: f32x4(a3, b3, c3, 0.0),
     }
 }
 
