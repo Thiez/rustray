@@ -346,12 +346,17 @@ fn trace_soup( polys: &model::polysoup, r: &Ray) -> Option<(HitResult, uint)>{
     return res;
 }
 
-#[deriving(Clone)]
 struct light {
     pos: f32x4,
     strength: f32,
     radius: f32,
     color: f32x4
+}
+
+impl Clone for light {
+    fn clone(&self) -> light {
+        light{ pos: self.pos, strength: self.strength, radius: self.radius, color: self.color }
+    }
 }
 
 fn make_light( pos: f32x4, strength: f32, radius: f32, color: f32x4 ) -> light {
