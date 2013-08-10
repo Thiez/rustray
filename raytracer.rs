@@ -14,8 +14,8 @@ pub struct Color { r:u8, g:u8, b:u8 }
 fn for_each_pixel( width: uint, height: uint, f : &fn (x: uint, y: uint) -> Color ) -> ~[Color]{
     let mut img_pixels = vec::with_capacity(height*width);
 
-    for uint::range( 0, height ) |row| {
-        for uint::range(0, width) |column| {
+    for row in range( 0, height ) {
+        for column in range(0, width) {
             img_pixels.push(f(column,row));
         }
     }
@@ -41,7 +41,7 @@ struct rand_env {
 impl Clone for rand_env {
     fn clone(&self) -> rand_env {
         let mut samples = ~[];
-        for self.hemicos_samples.iter().advance |s| {
+        for s in self.hemicos_samples.iter() {
             samples.push(*s);
         }
         rand_env{   floats: self.floats.clone(),
@@ -62,8 +62,8 @@ fn get_rand_env() -> rand_env {
 
     let mut hemicos_samples = vec::with_capacity(NUM_GI_SAMPLES_SQRT * NUM_GI_SAMPLES_SQRT);
 
-    for uint::range(0, NUM_GI_SAMPLES_SQRT) |x| {
-        for uint::range(0, NUM_GI_SAMPLES_SQRT) |y| {
+    for x in range(0, NUM_GI_SAMPLES_SQRT) {
+        for y in range(0, NUM_GI_SAMPLES_SQRT) {
             let (u,v) = (    ( (x as f32) + gen.gen() ) / (NUM_GI_SAMPLES_SQRT as f32),
                             ( (y as f32) + gen.gen() ) / (NUM_GI_SAMPLES_SQRT as f32) );
             hemicos_samples.push(cosine_hemisphere_sample(u,v));
@@ -79,7 +79,7 @@ fn get_rand_env() -> rand_env {
 #[inline]
 fn sample_floats_2d_offset( offset: uint, rnd: &rand_env, num: uint, body: &fn(f32,f32) ) {
     let mut ix = offset % rnd.floats.len();
-    for num.times {
+    do num.times {
         let r1 = rnd.floats[ix];
         ix = (ix + 1) % rnd.floats.len();
         let r2 = rnd.floats[ix];
@@ -95,7 +95,7 @@ fn sample_disk( rnd: &rand_env, num: uint, body: &fn(f32,f32) ){
         body(0.0,0.0);
     } else {
         let mut ix = rng.gen::<uint>() % rnd.disk_samples.len(); // start at random location
-        for num.times {
+        do num.times {
             let (u,v) = rnd.disk_samples[ix];
             body(u,v);
             ix = (ix + 1) % rnd.disk_samples.len();
@@ -116,7 +116,7 @@ fn sample_stratified_2d( rnd: &rand_env, m: uint, n : uint, body: &fn(f32,f32) )
     let n_inv = 1.0/(n as f32);
     let mut rng = rand::task_rng();
     let start_offset = rng.next();
-    for uint::range( 0, m ) |samplex| {
+    for samplex in range( 0, m ) {
         // sample one "row" of 2d floats
         let mut sampley = 0;
         do sample_floats_2d_offset( (start_offset as uint) + (n*samplex as uint), rnd, n ) |u,v| {
@@ -133,7 +133,7 @@ fn sample_cosine_hemisphere( rnd: &rand_env, n: f32x4, body: &fn(f32x4) ) {
     let rot_to_up = rotate_to_up(n);
     let random_rot = rotate_y( rnd.floats[ rng.next() as uint % rnd.floats.len() ] ); // random angle about y
     let m = mul_mtx33(rot_to_up, random_rot);
-        for rnd.hemicos_samples.iter().advance |s| {
+        for s in rnd.hemicos_samples.iter() {
         body(transform(m,*s));
     }
 }
@@ -326,7 +326,7 @@ fn trace_soup( polys: &model::polysoup, r: &Ray) -> Option<(HitResult, uint)>{
 
     let mut res : Option<(HitResult, uint)> = None;
 
-    for uint::range(0, polys.indices.len() / 3) |tri_ix| {
+    for tri_ix in range(0, polys.indices.len() / 3) {
         let tri = &get_triangle( polys, tri_ix);
 
         let new_hit = r.intersect(tri);
@@ -367,7 +367,7 @@ fn make_light( pos: f32x4, strength: f32, radius: f32, color: f32x4 ) -> light {
 fn direct_lighting( lights: &[light], pos: f32x4, n: f32x4, view_vec: f32x4, rnd: &rand_env, depth: uint, occlusion_probe: &fn(f32x4) -> bool ) -> f32x4 {
 
     let mut direct_light = f32x4(0.0, 0.0, 0.0, 0.0);
-    for lights.iter().advance |l| {
+    for l in lights.iter() {
 
         // compute shadow contribution
         let mut shadow_contrib = 0.0;
@@ -628,9 +628,9 @@ fn tracetask(data: ~TracetaskData) -> ~[Color] {
             rnd: rnd} => {
                 let mesh = meshArc.get();
             	let mut img_pixels = vec::with_capacity(width);
-            	for uint::range( height_start, height_stop ) |row| {
-	                for uint::range( 0, width ) |column| {
-                        let mut shaded_color = f32x4(0.0, 0.0, 0.0, 0.0);
+	            for row in range( height_start, height_stop ) {
+	                for column in range( 0, width ) {
+                        let mut shaded_color = f32x4(0.0 ,0.0 ,0.0 ,0.0);
                         
                         do sample_stratified_2d(rnd, sample_grid_size, sample_grid_size) |u,v| {
                             let sample = match sample_grid_size { 1 => (0.0,0.0), _ => (u-0.5,v-0.5) };
@@ -693,12 +693,12 @@ pub fn generate_raytraced_image_multi(
     let meshArc = extra::arc::Arc::new(mesh);
     let rnd = get_rand_env();
     let mut workers = ~[];
-    for num_tasks.times {
+    do num_tasks.times {
         workers.push(concurrent::ConcurrentCalc::new());
     }
     let step_size = 4;
     let mut results = ~[];
-    for uint::range(0,(height / step_size)+1) |i| {
+    for i in range(0,(height / step_size)+1) {
         let ttd = ~TracetaskData {   // The data required to trace the rays.
             meshArc: meshArc.clone(),
             horizontalFOV: horizontalFOV,
