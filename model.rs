@@ -29,8 +29,8 @@ pub struct kd_tree {
 }
 
 pub enum kd_tree_node {
-    pub leaf( u32, u32 ),
-    pub node( axis, f32, u32 )
+    leaf( u32, u32 ),
+    node( axis, f32, u32 )
 }
 
 fn find_split_plane( distances: &[f32], indices: &[uint], faces: &[uint] ) -> f32 {
@@ -221,7 +221,7 @@ pub fn read_mesh(fname: &str) -> mesh {
 
 
     for v in polys.vertices.iter() {
-        transformed_verts.push(scale(*v - offset, downscale));
+        transformed_verts.push((*v - offset) * downscale);
     }
 
     aabbmin = (aabbmin - offset) * downscale;
@@ -268,7 +268,6 @@ fn parse_faceindex(s: &str) ->  uint {
 }
 
 fn read_polysoup(fname: &str) -> polysoup {
-    use std::iterator::IteratorUtil;
     let reader = io::file_reader( &Path(fname) ).unwrap();
     let mut vertices = ~[];
     let mut indices = ~[];
@@ -287,9 +286,9 @@ fn read_polysoup(fname: &str) -> polysoup {
 
         if tokens[0] == "v" {
             assert!(tokens.len() == 4u);
-            let v = f32x4(  float::from_str(tokens[1]).get() as f32,
-                            float::from_str(tokens[2]).get() as f32,
-                            float::from_str(tokens[3]).get() as f32,
+            let v = f32x4(  float::from_str(tokens[1]).unwrap() as f32,
+                            float::from_str(tokens[2]).unwrap() as f32,
+                            float::from_str(tokens[3]).unwrap() as f32,
                             0.0);
             {
                 let f32x4(vx,vy,vz,_) = v;
