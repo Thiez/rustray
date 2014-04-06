@@ -1,14 +1,13 @@
-#[link(name = "rustray",
-       vers = "0.7",
-       uuid = "c89c5834-63db-4a6e-8e0a-d75985b1730e",
-       url = "https://github.com/brson/rustray")];
+#![crate_id = "rustray#0.11"]
 
-#[comment = "A toy ray tracer in Rust"];
-#[author = "Sebastian Sylvan"];
-#[license = "Unknown"];
-#[crate_type = "bin"];
+#![comment = "A toy ray tracer in Rust"]
+#![author = "Sebastian Sylvan"]
+#![license = "Unknown"]
+#![crate_type = "bin"]
 
-extern mod extra;
+extern crate time;
+extern crate sync;
+extern crate rand;
 
 pub mod consts;
 pub mod main;

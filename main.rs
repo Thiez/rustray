@@ -1,60 +1,60 @@
-use consts::*;
-use model;
-use raytracer;
+use std::{io,os};
+use std::io::{BufferedWriter,Writer,File,Open,Write};
+use std::path::Path;
 
-use std::*;
-use std::io::{Writer, WriterUtil};
-use extra;
+use super::consts;
+use super::model;
+use super::raytracer;
 
 fn write_ppm( fname: &str, width: uint, height: uint, pixels: &[raytracer::Color] ){
-    let writer = io::buffered_file_writer( &Path(fname) ).unwrap();
-    writer.write_str(fmt!("P6\n%u %u\n255\n", width, height));
-    for pixel in pixels.iter() {
-        writer.write([pixel.r, pixel.g, pixel.b]);
-    };
+  let mut writer = File::open_mode( &Path::new(fname), Open, Write ).map(|f|BufferedWriter::new(f)).unwrap();
+  let _ = writer.write_str( format!("P6\n{} {}\n255\n", width, height) );
+  for pixel in pixels.iter() {
+    let _ = writer.write([pixel.r, pixel.g, pixel.b]);
+  };
 }
 
 #[main]
 fn main()
 {
-    // Get command line args
-    let args = os::args();
+  // Get command line args
+  let args = os::args();
 
-    if args.len() != 2u {
-        io::println("Usage: rustray OBJ");
-        io::println("");
-        io::println("For example:");
-        io::println("   $ wget http://groups.csail.mit.edu/graphics/classes/6.837/F03/models/cow-nonormals.obj");
-        io::println("   $ ./rustray cow-nonormals.obj");
-        io::println("   $ gimp oput.ppm");
-        io::println("");
-        fail!();
-    }
+  if args.len() != 2u {
+    io::println("Usage: rustray OBJ");
+    io::println("");
+    io::println("For example:");
+    io::println("   $ wget http://groups.csail.mit.edu/graphics/classes/6.837/F03/models/cow-nonormals.obj");
+    io::println("   $ ./rustray cow-nonormals.obj");
+    io::println("   $ gimp oput.ppm");
+    io::println("");
+    fail!();
+  }
 
-    let start = extra::time::precise_time_s();
+  let start = ::time::precise_time_s();
 
 
-    io::println(~"Reading \"" + args[1] + "\"...");
-    let model = model::read_mesh( args[1] );
-    
-    let (depth,count) = model::count_kd_tree_nodes( &model.kd_tree );
+  io::println(~"Reading \"" + args[1] + "\"...");
+  let model = model::read_mesh( args[1] );
 
-    io::println(fmt!("Done.\nLoaded model.\n\tVerts: %u, Tris: %u\n\tKD-tree depth: %u, #nodes: %u",
-                model.polys.vertices.len(),
-                model.polys.indices.len()/3u,
-                depth, count));
+  let (depth,count) = model::count_kd_tree_nodes( &model.kd_tree );
 
-    io::print("Tracing rays... ");
-    let start_tracing = extra::time::precise_time_s();
-    let pixels = raytracer::generate_raytraced_image(model, FOV, WIDTH, HEIGHT, SAMPLE_GRID_SIZE);
-    io::println("Done!");
-    let end_tracing = extra::time::precise_time_s();
-    
-    let outputfile = "./oput.ppm";
-    io::print(~"Writing \"" + outputfile + "\"...");
-    write_ppm( outputfile, WIDTH, HEIGHT, pixels );
-    io::println("Done!");
+  io::println(format!("Done.\nLoaded model.\n\tVerts: {verts}, Tris: {tris}\n\tKD-tree depth: {depth}, nodes: {nodes}",
+  verts=model.polys.vertices.len(),
+  tris=model.polys.indices.len()/3u,
+  depth=depth, nodes=count));
 
-    let end = extra::time::precise_time_s();
-    io::print(fmt!("Total time: %3.3fs, of which tracing: %3.3f\n", end - start, end_tracing - start_tracing) );
+  io::print("Tracing rays... ");
+  let start_tracing = ::time::precise_time_s();
+  let pixels = raytracer::generate_raytraced_image(model, consts::FOV, consts::WIDTH, consts::HEIGHT, consts::SAMPLE_GRID_SIZE);
+  io::println("Done!");
+  let end_tracing = ::time::precise_time_s();
+
+  let outputfile = "./oput.ppm";
+  io::print(~"Writing \"" + outputfile + "\"...");
+  write_ppm( outputfile, consts::WIDTH, consts::HEIGHT, pixels );
+  io::println("Done!");
+
+  let end = ::time::precise_time_s();
+  io::print(format!("Total time: {total}s, of which tracing: {tracing}\n", total= (end - start), tracing=(end_tracing - start_tracing)) );
 }

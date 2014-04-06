@@ -3,18 +3,18 @@ extern crate sync;
 use std::{comm};
 use sync::Future;
 
-struct ConcurrentCalc<T,U> {
-  sender: comm::Sender<(T,proc(T)->U,comm::Sender<U>)>
+pub struct ConcurrentCalc<T,U> {
+  sender: comm::Sender<(T,proc:Send(T)->U,comm::Sender<U>)>
 }
 
-impl<T:Send, U: Send> ConcurrentCalc<T,U> {
+impl<T:Send, U:Send> ConcurrentCalc<T,U> {
   pub fn new() -> ConcurrentCalc<T,U> {
     let (send, recv) = comm::channel();
     spawn(proc() {
       loop {
         match recv.recv_opt() {
           Some(message) => {
-            let (data,f,s): (T,proc(T)->U,comm::Sender<U>) = message;
+            let (data,f,s): (T,proc:Send(T)->U,comm::Sender<U>) = message;
             s.send(f(data))
           },
           None => break
@@ -23,7 +23,7 @@ impl<T:Send, U: Send> ConcurrentCalc<T,U> {
     });
     ConcurrentCalc{ sender: send }
   }
-  pub fn calculate(&mut self, data: T, f: proc(T)->U) -> Future<U> {
+  pub fn calculate(&mut self, data: T, f: proc:Send(T)->U) -> Future<U> {
     let (send, recv) = comm::channel();
     self.sender.send( (data,f,send) );
     Future::from_fn(proc(){recv.recv()})
