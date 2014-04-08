@@ -2,7 +2,7 @@ use super::math3d::{Vec3,Ray,Triangle,HitResult,cosine_hemisphere_sample,rotate_
 use super::consts;
 use super::concurrent;
 use super::model;
-use std::{io,f32};
+use std::{io,f32,uint};
 use std::vec::{Vec};
 use std::cmp::{min};
 use std::num::Float;
@@ -14,16 +14,44 @@ pub struct Color {
   pub b:u8,
 }
 
-#[inline]
-fn for_each_pixel( width: uint, height: uint, f : |x: uint, y: uint| -> Color ) -> Vec<Color> {
-  let mut img_pixels = Vec::with_capacity(height*width);
+struct PixelCoords {
+  x: uint,
+  y: uint,
+}
 
-  for row in range( 0, height ) {
-    for column in range(0, width) {
-      img_pixels.push(f(column,row));
+struct PixelIterator {
+  width: uint,
+  height: uint,
+  row: uint,
+  col: uint,
+}
+
+impl PixelIterator {
+  fn new(width: uint, height: uint) -> PixelIterator {
+    PixelIterator {
+      width: width,
+      height: height,
+      row: 0,
+      col: uint::MAX, // we overflow to zero on first call to next()
     }
   }
-  img_pixels
+}
+
+impl Iterator<PixelCoords> for PixelIterator {
+  fn next(&mut self) -> Option<PixelCoords> {
+    self.col += 1;
+    if self.col >= self.width {
+      self.col = 0;
+      self.row += 1;
+      if self.row >= self.height {
+        return None;
+      }
+    }
+    Some(PixelCoords {
+      x: self.col,
+      y: self.row
+    })
+  }
 }
 
 #[inline]
@@ -656,7 +684,7 @@ fn generate_raytraced_image_single(
   lights: ~[Light]) -> ~[Color]
 {
   let rnd = get_rand_env();
-  for_each_pixel(width, height, |x,y| {
+  PixelIterator::new(width,height).map(|pixel| {
     let mut shaded_color = Vec3::new(0.0,0.0,0.0);
 
     sample_stratified_2d(&rnd, sample_grid_size, sample_grid_size, |u,v| {
@@ -664,7 +692,7 @@ fn generate_raytraced_image_single(
         1 => (0.0,0.0),
         _ => (u-0.5,v-0.5)
       };
-      let r = &get_ray(horizontalFOV, width, height, x, y, sample );
+      let r = &get_ray(horizontalFOV, width, height, pixel.x, pixel.y, sample );
       shaded_color = shaded_color + get_color(r, &mesh, lights, &rnd, 0.0, f32::INFINITY, 0);
     });
     shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv*sample_coverage_inv)).scale(255f32);
@@ -672,7 +700,7 @@ fn generate_raytraced_image_single(
       r: clamp(shaded_color.x, 0.0, 255.0) as u8,
       g: clamp(shaded_color.y, 0.0, 255.0) as u8,
       b: clamp(shaded_color.z, 0.0, 255.0) as u8 }
-  }).move_iter().collect()
+  }).collect()
 }
 
 // This fn generates the raytraced image by spawning 'num_tasks' tasks, and letting each
