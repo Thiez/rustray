@@ -1,4 +1,4 @@
-use super::math3d::{Vec3,Ray,Triangle,HitResult,cosine_hemisphere_sample,rotate_to_up,rotate_y};
+use super::math3d::{Vec3,Mtx33,Ray,Triangle,HitResult,cosine_hemisphere_sample,rotate_to_up,rotate_y};
 use super::consts;
 use super::concurrent;
 use super::model;
@@ -6,6 +6,7 @@ use std::{io,f32,uint};
 use std::vec::{Vec};
 use std::cmp::{min};
 use std::num::Float;
+use std::slice::Items;
 use rand::{Rng,task_rng,TaskRng};
 
 pub struct Color {
@@ -181,14 +182,29 @@ impl<'rand> Iterator<(f32,f32)> for Stratified2dIterator<'rand> {
   }
 }
 
-#[inline(always)]
-fn sample_cosine_hemisphere( rnd: &RandEnv, n: Vec3, body: |Vec3|->() ) {
-  let mut rng = task_rng();
-  let rot_to_up = rotate_to_up(n);
-  let random_rot = rotate_y( rnd.floats[ rng.gen::<uint>() % rnd.floats.len() ] ); // random angle about y
-  let m = rot_to_up * random_rot;
-  for s in rnd.hemicos_samples.iter() {
-    body(m.transform(*s));
+struct CosineHemisphereSampler<'rand> {
+  hemicos_samples: Items<'rand, Vec3>,
+  mtx: Mtx33,
+}
+
+impl<'rand> CosineHemisphereSampler<'rand> {
+  fn new(rnd: &'rand RandEnv, n: Vec3) -> CosineHemisphereSampler<'rand> {
+    let rot_to_up = rotate_to_up(n);
+    let random_rot = rotate_y( rnd.floats[ task_rng().gen::<uint>() % rnd.floats.len() ] ); // random angle about y
+    let mtx = rot_to_up * random_rot;
+    CosineHemisphereSampler {
+      hemicos_samples: rnd.hemicos_samples.iter(),
+      mtx: mtx,
+    }
+  }
+}
+
+impl<'rand> Iterator<Vec3> for CosineHemisphereSampler<'rand> {
+  fn next(&mut self) -> Option<Vec3> {
+    match self.hemicos_samples.next() {
+      Some(s) => Some(self.mtx.transform(*s)),
+      None => None,
+    }
   }
 }
 
@@ -499,9 +515,9 @@ fn shade(
   let gi_normal = if consts::USE_SMOOTH_NORMALS_FOR_GI { n } else { n_face };
   ambient = Vec3::new(0.0,0.0,0.0);
   if depth == 0 && consts::NUM_GI_SAMPLES_SQRT > 0 {
-    sample_cosine_hemisphere( rnd, gi_normal, |sample_vec| {
+    for sample_vec in CosineHemisphereSampler::new( rnd, gi_normal ) {
       ambient = ambient + color_probe( sample_vec );
-    });
+    };
     ambient = ambient.scale( 1.0 / (((consts::NUM_GI_SAMPLES_SQRT * consts::NUM_GI_SAMPLES_SQRT) as f32) * f32::consts::PI ));
   }
 
