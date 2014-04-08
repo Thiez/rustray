@@ -118,18 +118,6 @@ fn get_rand_env() -> RandEnv {
 }
 
 #[inline]
-fn sample_floats_2d_offset( offset: uint, rnd: &RandEnv, num: uint, body: |f32,f32|->() ) {
-  let mut ix = offset % rnd.floats.len();
-  for _ in range(0,num) {
-    let r1 = rnd.floats[ix];
-    ix = (ix + 1) % rnd.floats.len();
-    let r2 = rnd.floats[ix];
-    body(r1,r2);
-    ix = (ix + 1) % rnd.floats.len();
-  }
-}
-
-#[inline]
 fn sample_disk( rnd: &RandEnv, num: uint, body: |f32,f32|->() ){
   let mut rng = task_rng();
   if num == 1 {
@@ -147,31 +135,24 @@ fn sample_disk( rnd: &RandEnv, num: uint, body: |f32,f32|->() ){
 struct Stratified2dIterator<'rand> {
   rnd: &'rand RandEnv,
   rng: TaskRng,
-  rndIndex: uint,
   mSamples: uint,
   nSamples: uint,
   mIndex: uint,
   nIndex: uint,
-  m_inv: f32,
-  n_inv: f32,
   offset: uint,
 }
 
 impl<'rand> Stratified2dIterator<'rand> {
   fn new(rnd: &'rand RandEnv, mSamples: uint, nSamples: uint) -> Stratified2dIterator<'rand> {
     let mut rng = task_rng();
-    let rndIndex = rng.gen::<uint>() % rnd.disk_samples.len();
     let offset = rng.gen::<uint>();
     Stratified2dIterator {
       rnd: rnd,
       rng: rng,
-      rndIndex: rndIndex,
       mSamples: mSamples,
       nSamples: nSamples,
       mIndex: 0,
       nIndex: uint::MAX, // overflows on first call to next()
-      m_inv: 1.0 / (mSamples as f32),
-      n_inv: 1.0 / (nSamples as f32),
       offset: offset,
     }
   }
@@ -181,7 +162,6 @@ impl<'rand> Iterator<(f32,f32)> for Stratified2dIterator<'rand> {
   fn next(&mut self) -> Option<(f32,f32)> {
     self.nIndex += 1;
     if self.nIndex >= self.nSamples {
-      self.rndIndex = self.rng.gen::<uint>() & self.rnd.disk_samples.len();
       self.nIndex = 0;
       self.mIndex += 1;
       if self.mIndex >= self.mSamples {
@@ -193,28 +173,11 @@ impl<'rand> Iterator<(f32,f32)> for Stratified2dIterator<'rand> {
       Some((1.0,1.0))
     } else {
       let len = self.rnd.floats.len();
-      let r1 = self.rnd.floats[offset % len];
-      let r2 = self.rnd.floats[(offset + 1) % len];
+      let r1 = (self.mIndex as f32 + self.rnd.floats[offset % len]) / (self.mSamples as f32);
+      let r2 = (self.nIndex as f32 + self.rnd.floats[(offset + 1) % len]) / (self.nSamples as f32);
       self.offset += 2;
       Some((r1,r2))
     }
-  }
-}
-
-#[inline(always)]
-fn sample_stratified_2d( rnd: &RandEnv, m: uint, n : uint, body: |f32,f32|->() ) {
-  let m_inv = 1.0/(m as f32);
-  let n_inv = 1.0/(n as f32);
-  let mut rng = task_rng();
-  let start_offset: uint = rng.gen();
-  for samplex in range( 0, m ) {
-    // sample one "row" of 2d floats
-    let mut sampley = 0;
-    sample_floats_2d_offset((start_offset) + (n*samplex as uint), rnd, n, |u,v| {
-      body(  ((samplex as f32) + u) * m_inv,
-      ((sampley as f32) + v) * n_inv );
-      sampley += 1;
-    });
   }
 }
 
@@ -523,12 +486,12 @@ fn shade(
   /*let mut ao = 0f32;
     let rot_to_up = rotate_to_up(n_face);
     const NUM_AO_SAMPLES: uint = 5u;
-    sample_stratified_2d( rnd, NUM_AO_SAMPLES, NUM_AO_SAMPLES ) { |u,v|
+    for (u,v) in Stratified2dIterator::new(rnd, NUM_AO_SAMPLES, NUM_AO_SAMPLES) {
     let sample_vec = transform(rot_to_up, cosine_hemisphere_sample(u,v) );
   //let sample_vec = cosine_hemisphere_sample(u,v);
-  if !occlusion_probe( scale(sample_vec, 0.1f32) ) {
-  ao += 1f32/((NUM_AO_SAMPLES*NUM_AO_SAMPLES) as f32);
-  }
+    if !occlusion_probe( scale(sample_vec, 0.1f32) ) {
+      ao += 1f32/((NUM_AO_SAMPLES*NUM_AO_SAMPLES) as f32);
+    }
   };
   ambient = scale(ambient,ao); // todo: add ambient color */
 
@@ -730,14 +693,14 @@ fn tracetask(data: ~TracetaskData) -> ~[Color] {
         for column in range( 0, width ) {
           let mut shaded_color = Vec3::new(0.0,0.0,0.0);
 
-          sample_stratified_2d(&rnd, sample_grid_size, sample_grid_size, |u,v| {
+          for (u,v) in Stratified2dIterator::new(&rnd, sample_grid_size, sample_grid_size) {
             let sample = match sample_grid_size {
               1 => (0.0,0.0),
               _ => (u-0.5,v-0.5)
             };
             let r = &get_ray(horizontalFOV, width, height, column, row, sample);
             shaded_color = shaded_color + get_color(r, mesh, lights, &rnd, 0.0, f32::INFINITY, 0);
-          });
+          };
           shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv * sample_coverage_inv)).scale(255.0);
           let pixel = (
             clamp(shaded_color.x, 0.0, 255.0),
@@ -764,14 +727,14 @@ fn generate_raytraced_image_single(
   PixelIterator::new(width,height).map(|pixel| {
     let mut shaded_color = Vec3::new(0.0,0.0,0.0);
 
-    sample_stratified_2d(&rnd, sample_grid_size, sample_grid_size, |u,v| {
+    for (u,v) in Stratified2dIterator::new(&rnd, sample_grid_size, sample_grid_size) {
       let sample = match sample_grid_size {
         1 => (0.0,0.0),
         _ => (u-0.5,v-0.5)
       };
       let r = &get_ray(horizontalFOV, width, height, pixel.x, pixel.y, sample );
       shaded_color = shaded_color + get_color(r, &mesh, lights, &rnd, 0.0, f32::INFINITY, 0);
-    });
+    };
     shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv*sample_coverage_inv)).scale(255f32);
     (
       clamp(shaded_color.x, 0.0, 255.0),
