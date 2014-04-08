@@ -14,6 +14,21 @@ pub struct Color {
   pub b:u8,
 }
 
+trait ToColor {
+  fn toColor(self)->Color;
+}
+
+impl ToColor for (f32,f32,f32) {
+  fn toColor(self)->Color {
+    let (r,g,b) = self;
+    Color {
+      r: r as u8,
+      g: g as u8,
+      b: b as u8,
+    }
+  }
+}
+
 struct PixelCoords {
   x: uint,
   y: uint,
@@ -663,9 +678,10 @@ fn tracetask(data: ~TracetaskData) -> ~[Color] {
             shaded_color = shaded_color + get_color(r, mesh, lights, &rnd, 0.0, f32::INFINITY, 0);
           });
           shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv * sample_coverage_inv)).scale(255.0);
-          let pixel = Color{  r: clamp(shaded_color.x, 0.0, 255.0) as u8,
-          g: clamp(shaded_color.y, 0.0, 255.0) as u8,
-          b: clamp(shaded_color.z, 0.0, 255.0) as u8 };
+          let pixel = (
+            clamp(shaded_color.x, 0.0, 255.0),
+            clamp(shaded_color.y, 0.0, 255.0),
+            clamp(shaded_color.z, 0.0, 255.0)).toColor();
           img_pixels.push(pixel)
         }
       }
@@ -696,10 +712,11 @@ fn generate_raytraced_image_single(
       shaded_color = shaded_color + get_color(r, &mesh, lights, &rnd, 0.0, f32::INFINITY, 0);
     });
     shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv*sample_coverage_inv)).scale(255f32);
-    Color{
-      r: clamp(shaded_color.x, 0.0, 255.0) as u8,
-      g: clamp(shaded_color.y, 0.0, 255.0) as u8,
-      b: clamp(shaded_color.z, 0.0, 255.0) as u8 }
+    (
+      clamp(shaded_color.x, 0.0, 255.0),
+      clamp(shaded_color.y, 0.0, 255.0),
+      clamp(shaded_color.z, 0.0, 255.0)
+    ).toColor()
   }).collect()
 }
 
