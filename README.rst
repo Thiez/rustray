@@ -14,7 +14,7 @@ Compiling
 ---------
 ::
 
-   $ rustc rustray.rc
+   $ rustc main.rs
 
 It's usually worth compiling with '--opt-level 3'.
 

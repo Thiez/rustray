@@ -1,10 +1,23 @@
+#![crate_id = "rustray#0.11"]
+
+#![comment = "A toy ray tracer in Rust"]
+#![author = "Sebastian Sylvan"]
+#![license = "Unknown"]
+#![crate_type = "bin"]
+
+extern crate time;
+extern crate sync;
+extern crate rand;
+
 use std::{io,os};
 use std::io::{BufferedWriter,Writer,File,Open,Write};
 use std::path::Path;
 
-use super::consts;
-use super::model;
-use super::raytracer;
+pub mod consts;
+pub mod math3d;
+pub mod model;
+pub mod raytracer;
+pub mod concurrent;
 
 fn write_ppm( fname: &str, width: uint, height: uint, pixels: &[raytracer::Color] ){
   let mut writer = File::open_mode( &Path::new(fname), Open, Write ).map(|f|BufferedWriter::new(f)).unwrap();
@@ -14,7 +27,6 @@ fn write_ppm( fname: &str, width: uint, height: uint, pixels: &[raytracer::Color
   };
 }
 
-#[main]
 fn main()
 {
   // Get command line args
