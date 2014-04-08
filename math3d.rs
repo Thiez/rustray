@@ -189,7 +189,7 @@ impl Ray {
     }
   }
   #[inline(always)]
-  pub fn aabb_check(&self, max_dist: f32, bbox: aabb ) -> bool {
+  pub fn bb_check(&self, max_dist: f32, bbox: BoundingBox ) -> bool {
     let inv_dir = self.dir.recip();
     let (tx1,tx2,ty1,ty2,tz1,tz2) = (
       (bbox.min.x - self.origin.x)*inv_dir.x,
@@ -211,7 +211,7 @@ impl Ray {
 }
 
 
-pub struct aabb {
+pub struct BoundingBox {
   pub min: Vec3,
   pub max: Vec3,
 }

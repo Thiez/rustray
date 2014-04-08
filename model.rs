@@ -1,4 +1,4 @@
-use super::math3d::{Vec3,aabb};
+use super::math3d::{Vec3,BoundingBox};
 
 use std::f32;
 use std::io;
@@ -13,7 +13,7 @@ pub struct Polysoup {
 pub struct Mesh {
   pub polys: Polysoup,
   pub kd_tree: KdTree,
-  pub bounding_box: aabb,
+  pub bounding_box: BoundingBox,
 }
 
 pub enum Axis {
@@ -248,7 +248,7 @@ pub fn read_mesh(fname: &str) -> Mesh {
     polys.indices,
     faces.as_slice());
   Mesh { polys: Polysoup{vertices: transformed_verts, indices: new_indices, .. polys},
-  kd_tree: KdTree{ root: rootnode, nodes: nodes} , bounding_box: aabb{min: aabbmin, max: aabbmax} }
+  kd_tree: KdTree{ root: rootnode, nodes: nodes} , bounding_box: BoundingBox{min: aabbmin, max: aabbmax} }
 }
 
 fn parse_faceindex(s: &str) ->  uint {

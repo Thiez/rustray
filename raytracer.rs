@@ -488,7 +488,7 @@ fn trace_ray( r : &Ray, mesh : &model::Mesh, mint: f32, maxt: f32) -> Option<Int
 
 
   // check scene bounding box first
-  if !r.aabb_check( new_maxt, mesh.bounding_box ){
+  if !r.bb_check( new_maxt, mesh.bounding_box ){
     return checker_intersection;
   }
 
@@ -550,7 +550,7 @@ fn trace_ray_shadow( r: &Ray, mesh: &model::Mesh, mint: f32, maxt: f32) -> bool 
   }
 
   // check scene bounding box first
-  if !r.aabb_check( new_maxt, mesh.bounding_box ){
+  if !r.bb_check( new_maxt, mesh.bounding_box ){
     return false;
   }
 
