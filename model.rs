@@ -1,4 +1,4 @@
-use super::math3d::{vec3,mtx33,dot,lerp,scale,length_sq,length,normalized,recip,mul,add,sub,cross,min,max,Ray,Triangle,HitResult,aabb,cosine_hemisphere_sample,rotate_to_up,rotate_y,transform,mul_mtx33,transposed};
+use super::math3d::{Vec3,mtx33,Ray,Triangle,HitResult,aabb,cosine_hemisphere_sample,rotate_to_up,rotate_y,transform,mul_mtx33,transposed};
 
 use std::f32;
 use std::io;
@@ -6,9 +6,9 @@ use std::io::{Reader,BufferedReader,File,Open,Read};
 use std::path;
 
 pub struct polysoup {
-  pub vertices: ~[vec3],
+  pub vertices: ~[Vec3],
   pub indices: ~[uint],
-  pub normals: ~[vec3],
+  pub normals: ~[Vec3],
 }
 
 pub struct mesh {
@@ -104,8 +104,8 @@ fn build_kd_tree<'r>(
   xdists: &'r [f32],
   ydists: &'r [f32],
   zdists: &'r [f32],
-  aabbmin: vec3,
-  aabbmax: vec3,
+  aabbmin: Vec3,
+  aabbmax: Vec3,
   indices: &[uint],
   faces: &[uint] ) -> uint {
 
@@ -113,7 +113,7 @@ fn build_kd_tree<'r>(
     return build_leaf( kd_tree_nodes, new_indices, indices, faces );
   }
 
-  let extent = sub(aabbmax, aabbmin);
+  let extent = aabbmax - aabbmin;
   let axis = if extent.x > extent.y && extent.x > extent.z {
     x
   } else {
@@ -132,9 +132,9 @@ fn build_kd_tree<'r>(
 
   // adjust bounding boxes for children
   let (left_aabbmax,right_aabbmin) = match axis {
-    x => (vec3{x:s, ..aabbmax},vec3{x:s, ..aabbmin}),
-    y => (vec3{y:s, ..aabbmax},vec3{y:s, ..aabbmin}),
-    z => (vec3{z:s, ..aabbmax},vec3{z:s, ..aabbmin}),
+    x => (Vec3{x:s, ..aabbmax},Vec3{x:s, ..aabbmin}),
+    y => (Vec3{y:s, ..aabbmax},Vec3{y:s, ..aabbmin}),
+    z => (Vec3{z:s, ..aabbmax},Vec3{z:s, ..aabbmin}),
   };
 
   // allocate node from nodes-array, and recursively build children
@@ -203,25 +203,25 @@ pub fn read_mesh(fname: &str) -> mesh {
     faces.push(fii);
     fii += 1u
   }
-  let mut aabbmin = vec3(f32::INFINITY, f32::INFINITY, f32::INFINITY);
-  let mut aabbmax = vec3(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+  let mut aabbmin = Vec3::new(f32::INFINITY, f32::INFINITY, f32::INFINITY);
+  let mut aabbmax = Vec3::new(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
   for v in polys.vertices.iter() {
-    aabbmin = min(*v, aabbmin);
-    aabbmax = max(*v, aabbmax);
+    aabbmin = v.min(&aabbmin);
+    aabbmax = v.max(&aabbmax);
   }
 
-  let downscale = 1.0f32 / length(sub(aabbmax,aabbmin));
-  let offset = scale(add(aabbmin, aabbmax), 0.5f32);
+  let downscale = 1.0f32 / (aabbmax - aabbmin).length();
+  let offset = (aabbmin + aabbmax).scale(0.5f32);
 
   let mut transformed_verts = ~[];
 
 
   for v in polys.vertices.iter() {
-    transformed_verts.push(scale(sub(*v, offset), downscale));
+    transformed_verts.push((v - offset).scale(downscale));
   }
 
-  aabbmin = scale(sub(aabbmin, offset), downscale);
-  aabbmax = scale(sub(aabbmax, offset), downscale);
+  aabbmin = (aabbmin - offset).scale(downscale);
+  aabbmax = (aabbmax - offset).scale(downscale);
 
   // de-mux vertices for easier access later
   let mut xdists = ~[];
@@ -267,7 +267,7 @@ fn read_polysoup(fname: &str) -> polysoup {
   let mut vertices = ~[];
   let mut indices = ~[];
 
-  let mut vert_normals : ~[vec3] = ~[];
+  let mut vert_normals : ~[Vec3] = ~[];
 
   loop {
     let line = match reader.read_line() {
@@ -285,7 +285,7 @@ fn read_polysoup(fname: &str) -> polysoup {
     if tokens[0] == "v" {
       assert!(tokens.len() == 4u);
 
-      let v = vec3(
+      let v = Vec3::new(
         from_str::<f32>(tokens[1]).unwrap(),
         from_str::<f32>(tokens[2]).unwrap(),
         from_str::<f32>(tokens[3]).unwrap()
@@ -296,7 +296,7 @@ fn read_polysoup(fname: &str) -> polysoup {
       assert!(!v.z.is_nan());
 
       vertices.push(v);
-      vert_normals.push(vec3(0f32,0f32,0f32));
+      vert_normals.push(Vec3::new(0f32,0f32,0f32));
 
     } else if tokens[0] == "f" {
       if tokens.len() == 4u || tokens.len() == 5u {
@@ -326,13 +326,13 @@ fn read_polysoup(fname: &str) -> polysoup {
           indices.push(i1);
           indices.push(i2);
 
-          let e1 = sub(vertices[i1], vertices[i0]);
-          let e2 = sub(vertices[i2], vertices[i0]);
-          let n = normalized(cross(e1,e2));
+          let e1 = vertices[i1] - vertices[i0];
+          let e2 = vertices[i2] - vertices[i0];
+          let n = (e1.cross(&e2)).normalized();
 
-          vert_normals[i0] = add( vert_normals[i0], n );
-          vert_normals[i1] = add( vert_normals[i1], n );
-          vert_normals[i2] = add( vert_normals[i2], n );
+          vert_normals[i0] = vert_normals[i0] + n;
+          vert_normals[i1] = vert_normals[i1] + n;
+          vert_normals[i2] = vert_normals[i2] + n;
         }
       } else {
         io::println(format!("Polygon with {verts} vertices found. Ignored. Currently rustray only supports 4 vertices", verts=(tokens.len() - 1u)));
@@ -352,6 +352,6 @@ fn read_polysoup(fname: &str) -> polysoup {
   polysoup{
     vertices: vertices,
     indices: indices,
-    normals: vert_normals.move_iter().map(normalized).collect()
+    normals: vert_normals.move_iter().map( |vec|vec.normalized() ).collect()
   }
 }

@@ -1,143 +1,167 @@
 use std::f32::consts::PI;
+use std::ops::{Add,Sub,Mul};
 
-#[deriving(Eq,Clone)]
-pub struct vec3 {
+#[deriving(Eq,Clone,Show)]
+pub struct Vec3 {
   pub x:f32,
   pub y:f32,
   pub z:f32
 }
 
+impl Vec3 {
+  pub fn new(x:f32, y:f32, z:f32) -> Vec3 {
+    Vec3{x:x,y:y,z:z}
+  }
+
+  pub fn scale(&self, c:f32) -> Vec3 {
+    Vec3 {
+      x: self.x * c,
+      y: self.y * c,
+      z: self.z * c,
+    }
+  }
+
+  pub fn dot(&self, other: &Vec3) -> f32 {
+    (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
+  }
+
+  pub fn lerp(&self, other: &Vec3, t: f32) -> Vec3 {
+    *self + (*other-*self).scale(t)
+  }
+
+  pub fn length_sq(&self) -> f32 {
+    self.dot(self)
+  }
+
+  pub fn length(&self) -> f32 {
+    self.length_sq().sqrt()
+  }
+
+  pub fn normalized(&self) -> Vec3 {
+    self.scale( 1.0 / self.length() )
+  }
+
+  pub fn recip(&self) -> Vec3 {
+    Vec3 {
+      x: 1.0 / self.x,
+      y: 1.0 / self.y,
+      z: 1.0 / self.z,
+    }
+  }
+
+  pub fn min(&self, other: &Vec3) -> Vec3 {
+    Vec3 {
+      x: self.x.min( other.x ),
+      y: self.y.min( other.y ),
+      z: self.z.min( other.z ),
+    }
+  }
+
+  pub fn max(&self, other: &Vec3) -> Vec3 {
+    Vec3 {
+      x: self.x.max( other.x ),
+      y: self.y.max( other.y ),
+      z: self.z.max( other.z ),
+    }
+  }
+
+  pub fn cross(&self, other: &Vec3) -> Vec3 {
+    Vec3 {
+      x: (self.y * other.z) - (other.y * self.z),
+      y: (self.z * other.x) - (other.z * self.x),
+      z: (self.x * other.y) - (other.x * self.y),
+    }
+  }
+}
+
+impl Add<Vec3, Vec3> for Vec3 {
+  fn add(&self, rhs: &Vec3) -> Vec3 {
+    Vec3 {
+      x: self.x + rhs.x,
+      y: self.y + rhs.y,
+      z: self.z + rhs.z,
+    }
+  }
+}
+
+impl Sub<Vec3, Vec3> for Vec3 {
+  fn sub(&self, rhs: &Vec3) -> Vec3 {
+    Vec3 {
+      x: self.x - rhs.x,
+      y: self.y - rhs.y,
+      z: self.z - rhs.z,
+    }
+  }
+}
+
+impl Mul<Vec3, Vec3> for Vec3 {
+  fn mul(&self, rhs: &Vec3) -> Vec3 {
+    Vec3 {
+      x: self.x * rhs.x,
+      y: self.y * rhs.y,
+      z: self.z * rhs.z,
+    }
+  }
+}
+
 pub struct mtx33 {
-  r0:vec3,
-  r1:vec3,
-  r2:vec3
-}
-
-#[inline(always)]
-pub fn vec3(x:f32, y:f32, z:f32) -> vec3{
-  vec3 {x:x, y:y, z:z}
-}
-
-#[inline(always)]
-pub fn dot(a:vec3, b:vec3) -> f32 {
-  a.x*b.x + a.y*b.y + a.z*b.z
-}
-
-#[inline(always)]
-pub fn lerp(a:vec3, b:vec3, t:f32) -> vec3{
-  add( a, scale(sub(b,a),t) )
-}
-
-#[inline(always)]
-pub fn scale(v:vec3, s:f32) -> vec3 {
-  vec3 { x:v.x*s, y:v.y*s, z:v.z*s }
-}
-
-#[inline(always)]
-pub fn length_sq(v:vec3) -> f32 {
-  dot(v,v)
-}
-
-#[inline(always)]
-pub fn length(v:vec3) -> f32 {
-  length_sq(v).sqrt()
-}
-
-#[inline(always)]
-pub fn normalized(v:vec3) -> vec3 {
-  scale(v, 1.0f32 / length(v))
-}
-
-#[inline(always)]
-pub fn recip(a:vec3) -> vec3{
-  vec3(1f32/a.x, 1f32/a.y, 1f32/a.z)
-}
-
-
-#[inline(always)]
-pub fn mul(a:vec3, b:vec3) -> vec3{
-  vec3(a.x*b.x, a.y*b.y, a.z*b.z)
-}
-
-#[inline(always)]
-pub fn add(a:vec3, b:vec3) -> vec3 {
-  vec3 {x:a.x+b.x, y:a.y+b.y, z:a.z+b.z}
-}
-
-#[inline(always)]
-pub fn sub(a:vec3, b:vec3) -> vec3 {
-  add(a, scale(b, -1.0f32))
-}
-
-#[inline(always)]
-pub fn cross(a:vec3, b:vec3) -> vec3 {
-  vec3( a.y*b.z - b.y*a.z,
-  a.z*b.x - b.z*a.x,
-  a.x*b.y - b.x*a.y)
-}
-
-#[inline(always)]
-pub fn min(a: vec3, b: vec3) -> vec3 {
-  vec3( a.x.min(b.x), a.y.min(b.y), a.z.min(b.z) )
-}
-
-#[inline(always)]
-pub fn max(a: vec3, b: vec3) -> vec3 {
-  vec3( a.x.max(b.x), a.y.max(b.y), a.z.max(b.z) )
+  r0:Vec3,
+  r1:Vec3,
+  r2:Vec3,
 }
 
 pub struct Ray {
-  pub origin:vec3,
-  pub dir:vec3,
+  pub origin: Vec3,
+  pub dir: Vec3,
 }
 pub struct Triangle {
-  pub p1: vec3,
-  pub p2: vec3,
-  pub p3: vec3,
+  pub p1: Vec3,
+  pub p2: Vec3,
+  pub p3: Vec3,
 }
 pub struct HitResult {
-  pub barycentric: vec3,
+  pub barycentric: Vec3,
   pub t: f32
 }
 
 impl Ray {
   #[inline(always)]
   pub fn intersect(&self, t: &Triangle) -> Option<HitResult> {
-    let e1 = sub(t.p2,t.p1);
-    let e2 = sub(t.p3,t.p1);
-    let s1 = cross(self.dir,e2);
-    let divisor = dot(s1,e1);
+    let e1 = t.p2 - t.p1;
+    let e2 = t.p3 - t.p1;
+    let s1 = self.dir.cross(&e2);
+    let divisor = s1.dot(&e1);
     if divisor == 0.0 {
       return None;
     }
 
     // compute first barycentric coordinate
     let inv_divisor = 1.0 / divisor;
-    let d = sub(self.origin,t.p1);
+    let d = self.origin - t.p1;
 
-    let b1 = dot(d, s1) * inv_divisor;
+    let b1 = d.dot(&s1) * inv_divisor;
     if b1 < 0.0 || b1 > 1.0 {
       return None;
     }
 
     // and second barycentric coordinate
-    let s2 = cross(d,e1);
-    let b2 = dot(self.dir,s2) * inv_divisor;
+    let s2 = d.cross(&e1);
+    let b2 = self.dir.dot(&s2) * inv_divisor;
 
     if b2 < 0.0 || b1+b2 > 1.0 {
       return None; // outside triangle
     }
 
-    let t = dot(e2,s2) * inv_divisor;
+    let t = e2.dot(&s2) * inv_divisor;
     if t < 0.0 {
       None // behind viewer
     } else {
-      Some( HitResult{ barycentric: vec3(b1, b2, 1.0-b1-b2), t: t} )
+      Some( HitResult{ barycentric: Vec3::new(b1, b2, 1.0-b1-b2), t: t} )
     }
   }
   #[inline(always)]
   pub fn aabb_check(&self, max_dist: f32, bbox: aabb ) -> bool {
-    let inv_dir = recip(self.dir);
+    let inv_dir = self.dir.recip();
     let (tx1,tx2,ty1,ty2,tz1,tz2) = (
       (bbox.min.x - self.origin.x)*inv_dir.x,
       (bbox.max.x - self.origin.x)*inv_dir.x,
@@ -159,61 +183,98 @@ impl Ray {
 
 
 pub struct aabb {
-  pub min: vec3,
-  pub max: vec3
+  pub min: Vec3,
+  pub max: Vec3,
 }
 
 // Gives a cosine hemisphere sample from two uniform f32s
 // in [0,1) range.
-  #[inline(always)]
-  pub fn cosine_hemisphere_sample( u: f32, v: f32 ) -> vec3 {
-    let r_sqrt = u.sqrt();
-    let theta = 2f32 * PI * v;
-    vec3( r_sqrt*theta.cos(), (1f32-u).sqrt(), r_sqrt*theta.sin() )
-  }
+#[inline(always)]
+pub fn cosine_hemisphere_sample( u: f32, v: f32 ) -> Vec3 {
+  let r_sqrt = u.sqrt();
+  let theta = 2f32 * PI * v;
+  Vec3::new( r_sqrt*theta.cos(), (1f32-u).sqrt(), r_sqrt*theta.sin() )
+}
 
-  #[inline(always)]
-  pub fn rotate_to_up( up_vec: vec3 ) -> mtx33 {
-    let perp = if up_vec == vec3(0f32,1f32,0f32) { vec3(1f32,0f32,0f32) } else { vec3(0f32,1f32,0f32) };
-    let right = cross( up_vec, perp );
-    let fwd = cross(right, up_vec );
-    transposed( mtx33{ r0: right, r1: up_vec, r2: fwd } )
-  }
+#[inline(always)]
+pub fn rotate_to_up( up_vec: Vec3 ) -> mtx33 {
+  let perp = if up_vec == Vec3::new(0f32,1f32,0f32) { Vec3::new(1f32,0f32,0f32) } else { Vec3::new(0f32,1f32,0f32) };
+  let right = up_vec.cross( &perp );
+  let fwd = right.cross( &up_vec );
+  transposed( mtx33{ r0: right, r1: up_vec, r2: fwd } )
+}
 
-  #[inline(always)]
-  pub fn rotate_y(theta: f32) -> mtx33{
-    let ct = theta.cos();
-    let st = theta.sin();
-    mtx33{ r0: vec3(ct,0f32,st), r1: vec3(0f32,1f32,0f32), r2: vec3(-st, 0f32, ct) }
-  }
+#[inline(always)]
+pub fn rotate_y(theta: f32) -> mtx33{
+  let ct = theta.cos();
+  let st = theta.sin();
+  mtx33{ r0: Vec3::new(ct,0f32,st), r1: Vec3::new(0f32,1f32,0f32), r2: Vec3::new(-st, 0f32, ct) }
+}
 
-  #[inline(always)]
-  pub fn transform( m: mtx33, v: vec3 ) -> vec3 {
-    vec3( dot( m.r0, v ), dot( m.r1, v ), dot( m.r2, v ) )
-  }
+#[inline(always)]
+pub fn transform( m: mtx33, v: Vec3 ) -> Vec3 {
+  Vec3::new(
+    m.r0.dot( &v ),
+    m.r1.dot( &v ),
+    m.r2.dot( &v ),
+  )
+}
 
-  #[inline(always)]
-  pub fn mul_mtx33( a: mtx33, b: mtx33 ) -> mtx33 {
-    let b_t = transposed(b);
-    mtx33 {   r0: vec3( dot(a.r0,b_t.r0), dot(a.r0,b_t.r1), dot(a.r0,b_t.r2) ),
-    r1: vec3( dot(a.r1,b_t.r0), dot(a.r1,b_t.r1), dot(a.r1,b_t.r2) ),
-    r2: vec3( dot(a.r2,b_t.r0), dot(a.r2,b_t.r1), dot(a.r2,b_t.r2) ) }
-  }
+#[inline(always)]
+pub fn mul_mtx33( a: mtx33, b: mtx33 ) -> mtx33 {
+  let b_t = transposed(b);
+  mtx33 {   r0: Vec3::new( a.r0.dot(&b_t.r0), a.r0.dot(&b_t.r1), a.r0.dot(&b_t.r2) ),
+  r1: Vec3::new( a.r1.dot(&b_t.r0), a.r1.dot(&b_t.r1), a.r1.dot(&b_t.r2) ),
+  r2: Vec3::new( a.r2.dot(&b_t.r0), a.r2.dot(&b_t.r1), a.r2.dot(&b_t.r2) ) }
+}
 
-  #[inline(always)]
-  pub fn transposed( m: mtx33 ) -> mtx33 {
-    mtx33 {   r0: vec3( m.r0.x, m.r1.x, m.r2.x ),
-    r1: vec3( m.r0.y, m.r1.y, m.r2.y ),
-    r2: vec3( m.r0.z, m.r1.z, m.r2.z ) }
+#[inline(always)]
+pub fn transposed( m: mtx33 ) -> mtx33 {
+  mtx33 {
+    r0: Vec3::new( m.r0.x, m.r1.x, m.r2.x ),
+    r1: Vec3::new( m.r0.y, m.r1.y, m.r2.y ),
+    r2: Vec3::new( m.r0.z, m.r1.z, m.r2.z ),
   }
+}
 
-  #[test]
-  pub fn intersection_test()
-  {
-    let ray = Ray{ origin: vec3(0f32, 0f32, 0f32), dir: vec3(0.0f32,0.0f32,-1.0f32) };
-    let tri = Triangle{  p1: vec3(-1f32, -1f32, -1f32),
-    p2: vec3(1f32, -1f32, -1f32),
-    p3: vec3(0f32, 2f32, -1f32) };
+#[test]
+pub fn dot_test()
+{
+  let v1 = Vec3::new(1.0,2.0,3.0);
+  let v2 = Vec3::new(4.0,5.0,6.0);
+  let expected = 1.0 * 4.0 + 2.0 * 5.0 + 3.0 * 6.0;
+  assert!(v1.dot(&v2) == expected);
+}
 
-    assert!(ray.intersect(&tri).is_some());
-  }
+#[test]
+pub fn cross_test()
+{
+  let (x1,x2,y1,y2,z1,z2) = (1.0,4.0,2.0,5.0,3.0,6.0);
+  let v1 = Vec3::new(x1,y1,z1);
+  let v2 = Vec3::new(x2,y2,z2);
+  let expected = Vec3::new(
+    (y1 * z2) - (y2 * z1),
+    (z1 * x2) - (z2 * x1),
+    (x1 * y2) - (x2 * y1)
+  );
+  let result = v1.cross(&v2);
+  assert!( expected.x == result.x );
+  assert!( expected.y == result.y );
+  assert!( expected.z == result.z );
+}
+
+#[test]
+pub fn intersection_test()
+{
+  let ray = Ray{
+    origin: Vec3::new(0f32, 0f32, 0f32),
+    dir: Vec3::new(0.0f32,0.0f32,-1.0f32),
+  };
+  let tri = Triangle{
+    p1: Vec3::new(-1f32, -1f32, -1f32),
+    p2: Vec3::new(1f32, -1f32, -1f32),
+    p3: Vec3::new(0f32, 2f32, -1f32),
+  };
+
+  assert!(ray.intersect(&tri).is_some());
+}
