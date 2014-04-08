@@ -1,14 +1,14 @@
 Rustray
 =======
 
-May 2013
+April 2014
 
 A raytracing proof-of-concept in Rust
 
 Requirements
 ------------
 
-- Rust-0.6 (incoming)
+- Rust-0.11-pre
 
 Compiling
 ---------
@@ -35,8 +35,8 @@ simple model or adjust quality settings.
     Reading "cow-nonormals.obj"...
     Reading model file...Building kd-tree... Done.
     Loaded model.
-	    Verts: 4583, Tris: 25811
-	    KD-tree depth: 14, #nodes: 3341
+      Verts: 4583, Tris: 25811
+      KD-tree depth: 14, #nodes: 3341
     Tracing rays... using 4 tasks ... Done!
     Writing "./oput.ppm"...Done!
     Total time: 16.149s, of which tracing: 11.161
