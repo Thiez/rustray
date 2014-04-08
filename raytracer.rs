@@ -330,19 +330,26 @@ fn trace_soup( polys: &model::polysoup, r: &Ray) -> Option<(HitResult, uint)>{
 }
 
 #[deriving(Clone)]
-struct light {
+struct Light {
   pos: Vec3,
   strength: f32,
   radius: f32,
   color: Vec3
 }
 
-fn make_light( pos: Vec3, strength: f32, radius: f32, color: Vec3 ) -> light {
-  light{ pos: pos, strength: strength, radius: radius, color: color }
+impl Light {
+  fn new(pos: Vec3, strength: f32, radius: f32, color: Vec3) -> Light {
+    Light {
+      pos: pos,
+      strength: strength,
+      radius: radius,
+      color: color,
+    }
+  }
 }
 
 #[inline(always)]
-fn direct_lighting( lights: &[light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &rand_env, depth: uint, occlusion_probe: |Vec3| -> bool ) -> Vec3 {
+fn direct_lighting( lights: &[Light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &rand_env, depth: uint, occlusion_probe: |Vec3| -> bool ) -> Vec3 {
 
   let mut direct_light = Vec3::new(0.0,0.0,0.0);
   for l in lights.iter() {
@@ -390,7 +397,7 @@ fn direct_lighting( lights: &[light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &
 
 #[inline]
 fn shade(
-  pos: Vec3, n: Vec3, n_face: Vec3, r: &Ray, color: Vec3, reflectivity: f32, lights: &[light], rnd: &rand_env, depth: uint,
+  pos: Vec3, n: Vec3, n_face: Vec3, r: &Ray, color: Vec3, reflectivity: f32, lights: &[Light], rnd: &rand_env, depth: uint,
   occlusion_probe: |Vec3| -> bool,
   color_probe: |Vec3| -> Vec3 ) -> Vec3 {
 
@@ -550,7 +557,7 @@ fn trace_ray_shadow( r: &Ray, mesh: &model::mesh, mint: f32, maxt: f32) -> bool 
 
 
 #[inline(always)]
-fn get_color( r: &Ray, mesh: &model::mesh, lights: &[light], rnd: &rand_env, tmin: f32, tmax: f32, depth: uint) -> Vec3 {
+fn get_color( r: &Ray, mesh: &model::mesh, lights: &[Light], rnd: &rand_env, tmin: f32, tmax: f32, depth: uint) -> Vec3 {
   let theta = Vec3::new(0.0,1.0,0.0).dot( &r.dir );
   let default_color = Vec3::new(clamp(1.0-theta*4.0,0.0,0.75)+0.25, clamp(0.5-theta*3.0,0.0,0.75)+0.25, theta);    // fake sky colour
 
@@ -599,7 +606,7 @@ struct TracetaskData {
   height_start: uint,
   height_stop: uint,
   sample_coverage_inv: f32,
-  lights: ~[light],
+  lights: ~[Light],
   rnd: ~rand_env
 }
 
@@ -636,14 +643,14 @@ fn tracetask(data: ~TracetaskData) -> ~[Color] {
   }
 }
 
-pub fn generate_raytraced_image_single(
+fn generate_raytraced_image_single(
   mesh: model::mesh,
   horizontalFOV: f32,
   width: uint,
   height: uint,
   sample_grid_size: uint,
   sample_coverage_inv: f32,
-  lights: ~[light]) -> ~[Color]
+  lights: ~[Light]) -> ~[Color]
 {
   let rnd = get_rand_env();
   for_each_pixel(width, height, |x,y| {
@@ -669,14 +676,14 @@ pub fn generate_raytraced_image_single(
 // generate a part of the image. The way the work is divided is not intelligent: it chops
 // the image in horizontal chunks of step_size pixels high, and divides these between the
 // tasks. There is no work-stealing :(
-pub fn generate_raytraced_image_multi(
+fn generate_raytraced_image_multi(
   mesh: model::mesh,
   horizontalFOV: f32,
   width: uint,
   height: uint,
   sample_grid_size: uint,
   sample_coverage_inv: f32,
-  lights: ~[light],
+  lights: ~[Light],
   num_tasks: uint) -> ~[Color]
 {
   io::print(format!("using {tasks} tasks ... ", tasks=num_tasks));
@@ -715,8 +722,8 @@ pub fn generate_raytraced_image(
   sample_grid_size: uint) -> ~[Color]
 {
   let sample_coverage_inv = 1.0 / (sample_grid_size as f32);
-  let lights = ~[  make_light(Vec3::new(-3.0, 3.0, 0.0),10.0, 0.3, Vec3::new(1.0,1.0,1.0)) ]; //,
-  //make_light(Vec3::new(0f32, 0f32, 0f32), 10f32, 0.25f32, Vec3::new(1f32,1f32,1.0f32))];
+  let lights = ~[  Light::new(Vec3::new(-3.0, 3.0, 0.0),10.0, 0.3, Vec3::new(1.0,1.0,1.0)) ]; //,
+  //Light::new(Vec3::new(0f32, 0f32, 0f32), 10f32, 0.25f32, Vec3::new(1f32,1f32,1.0f32))];
   let mut num_tasks = match consts::NUM_THREADS {
     0 => 4u,
     n => n
