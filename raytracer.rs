@@ -638,7 +638,7 @@ struct TracetaskData {
   height_stop: uint,
   sample_coverage_inv: f32,
   lights: ~[Light],
-  rnd: ~RandEnv
+  rnd: RandEnv
 }
 
 #[inline]
@@ -654,13 +654,13 @@ fn tracetask(data: ~TracetaskData) -> ~[Color] {
         for column in range( 0, width ) {
           let mut shaded_color = Vec3::new(0.0,0.0,0.0);
 
-          sample_stratified_2d(rnd, sample_grid_size, sample_grid_size, |u,v| {
+          sample_stratified_2d(&rnd, sample_grid_size, sample_grid_size, |u,v| {
             let sample = match sample_grid_size {
               1 => (0.0,0.0),
               _ => (u-0.5,v-0.5)
             };
             let r = &get_ray(horizontalFOV, width, height, column, row, sample);
-            shaded_color = shaded_color + get_color(r, mesh, lights, rnd, 0.0, f32::INFINITY, 0);
+            shaded_color = shaded_color + get_color(r, mesh, lights, &rnd, 0.0, f32::INFINITY, 0);
           });
           shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv * sample_coverage_inv)).scale(255.0);
           let pixel = Color{  r: clamp(shaded_color.x, 0.0, 255.0) as u8,
@@ -737,7 +737,7 @@ fn generate_raytraced_image_multi(
       height_stop: min( (i + 1) * step_size, height ),
       sample_coverage_inv: sample_coverage_inv,
       lights: lights.clone(),
-      rnd: ~rnd.clone()
+      rnd: rnd.clone()
     };
     results.push(workers[i % num_tasks].calculate(ttd,tracetask));
   }
