@@ -1,4 +1,4 @@
-use super::math3d::{Vec3,mtx33,Ray,Triangle,HitResult,aabb,cosine_hemisphere_sample,rotate_to_up,rotate_y,transform,mul_mtx33,transposed};
+use super::math3d::{Vec3,Mtx33,Ray,Triangle,HitResult,aabb,cosine_hemisphere_sample,rotate_to_up,rotate_y};
 use super::consts;
 use super::concurrent;
 use super::model;
@@ -125,9 +125,9 @@ fn sample_cosine_hemisphere( rnd: &rand_env, n: Vec3, body: |Vec3|->() ) {
   let mut rng = task_rng();
   let rot_to_up = rotate_to_up(n);
   let random_rot = rotate_y( rnd.floats[ rng.gen::<uint>() % rnd.floats.len() ] ); // random angle about y
-  let m = mul_mtx33(rot_to_up, random_rot);
+  let m = rot_to_up * random_rot;
   for s in rnd.hemicos_samples.iter() {
-    body(transform(m,*s));
+    body(m.transform(*s));
   }
 }
 
@@ -363,7 +363,7 @@ fn direct_lighting( lights: &[light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &
     sample_disk(rnd ,num_samples, |u,v| {        // todo: stratify this
 
       // scale and rotate disk sample, and position it at the light's location
-      let sample_pos = l.pos + transform(rot_to_up, Vec3::new(u*l.radius,0f32,v*l.radius) );
+      let sample_pos = l.pos + rot_to_up.transform( Vec3::new(u*l.radius,0f32,v*l.radius) );
 
       if !occlusion_probe( sample_pos - pos ) {
         shadow_contrib += shadow_sample_weight;

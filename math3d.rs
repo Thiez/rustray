@@ -104,10 +104,39 @@ impl Mul<Vec3, Vec3> for Vec3 {
   }
 }
 
-pub struct mtx33 {
+pub struct Mtx33 {
   r0:Vec3,
   r1:Vec3,
   r2:Vec3,
+}
+
+impl Mtx33 {
+  pub fn transform(&self, v: Vec3) -> Vec3 {
+    Vec3::new(
+      self.r0.dot( &v ),
+      self.r1.dot( &v ),
+      self.r2.dot( &v )
+    )
+  }
+
+  pub fn transposed(&self) -> Mtx33 {
+    Mtx33 {
+      r0: Vec3::new( self.r0.x, self.r1.x, self.r2.x ),
+      r1: Vec3::new( self.r0.y, self.r1.y, self.r2.y ),
+      r2: Vec3::new( self.r0.z, self.r1.z, self.r2.z ),
+    }
+  }
+}
+
+impl Mul<Mtx33,Mtx33> for Mtx33 {
+  fn mul(&self, rhs: &Mtx33) -> Mtx33 {
+    let rhs = rhs.transposed();
+    Mtx33 {
+      r0: Vec3::new( self.r0.dot(&rhs.r0), self.r0.dot(&rhs.r1), self.r0.dot(&rhs.r2) ),
+      r1: Vec3::new( self.r1.dot(&rhs.r0), self.r1.dot(&rhs.r1), self.r1.dot(&rhs.r2) ),
+      r2: Vec3::new( self.r2.dot(&rhs.r0), self.r2.dot(&rhs.r1), self.r2.dot(&rhs.r2) ),
+    }
+  }
 }
 
 pub struct Ray {
@@ -197,44 +226,18 @@ pub fn cosine_hemisphere_sample( u: f32, v: f32 ) -> Vec3 {
 }
 
 #[inline(always)]
-pub fn rotate_to_up( up_vec: Vec3 ) -> mtx33 {
+pub fn rotate_to_up( up_vec: Vec3 ) -> Mtx33 {
   let perp = if up_vec == Vec3::new(0f32,1f32,0f32) { Vec3::new(1f32,0f32,0f32) } else { Vec3::new(0f32,1f32,0f32) };
   let right = up_vec.cross( &perp );
   let fwd = right.cross( &up_vec );
-  transposed( mtx33{ r0: right, r1: up_vec, r2: fwd } )
+  Mtx33{ r0: right, r1: up_vec, r2: fwd }.transposed()
 }
 
 #[inline(always)]
-pub fn rotate_y(theta: f32) -> mtx33{
+pub fn rotate_y(theta: f32) -> Mtx33{
   let ct = theta.cos();
   let st = theta.sin();
-  mtx33{ r0: Vec3::new(ct,0f32,st), r1: Vec3::new(0f32,1f32,0f32), r2: Vec3::new(-st, 0f32, ct) }
-}
-
-#[inline(always)]
-pub fn transform( m: mtx33, v: Vec3 ) -> Vec3 {
-  Vec3::new(
-    m.r0.dot( &v ),
-    m.r1.dot( &v ),
-    m.r2.dot( &v ),
-  )
-}
-
-#[inline(always)]
-pub fn mul_mtx33( a: mtx33, b: mtx33 ) -> mtx33 {
-  let b_t = transposed(b);
-  mtx33 {   r0: Vec3::new( a.r0.dot(&b_t.r0), a.r0.dot(&b_t.r1), a.r0.dot(&b_t.r2) ),
-  r1: Vec3::new( a.r1.dot(&b_t.r0), a.r1.dot(&b_t.r1), a.r1.dot(&b_t.r2) ),
-  r2: Vec3::new( a.r2.dot(&b_t.r0), a.r2.dot(&b_t.r1), a.r2.dot(&b_t.r2) ) }
-}
-
-#[inline(always)]
-pub fn transposed( m: mtx33 ) -> mtx33 {
-  mtx33 {
-    r0: Vec3::new( m.r0.x, m.r1.x, m.r2.x ),
-    r1: Vec3::new( m.r0.y, m.r1.y, m.r2.y ),
-    r2: Vec3::new( m.r0.z, m.r1.z, m.r2.z ),
-  }
+  Mtx33{ r0: Vec3::new(ct,0f32,st), r1: Vec3::new(0f32,1f32,0f32), r2: Vec3::new(-st, 0f32, ct) }
 }
 
 #[test]

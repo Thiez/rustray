@@ -1,4 +1,4 @@
-use super::math3d::{Vec3,mtx33,Ray,Triangle,HitResult,aabb,cosine_hemisphere_sample,rotate_to_up,rotate_y,transform,mul_mtx33,transposed};
+use super::math3d::{Vec3,Mtx33,Ray,Triangle,HitResult,aabb,cosine_hemisphere_sample,rotate_to_up,rotate_y};
 
 use std::f32;
 use std::io;
