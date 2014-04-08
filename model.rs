@@ -4,32 +4,32 @@ use std::f32;
 use std::io;
 use std::io::{BufferedReader,File,Open,Read};
 
-pub struct polysoup {
+pub struct Polysoup {
   pub vertices: ~[Vec3],
   pub indices: ~[uint],
   pub normals: ~[Vec3],
 }
 
-pub struct mesh {
-  pub polys: polysoup,
-  pub kd_tree: kd_tree,
+pub struct Mesh {
+  pub polys: Polysoup,
+  pub kd_tree: KdTree,
   pub bounding_box: aabb,
 }
 
-pub enum axis {
-  x,
-  y,
-  z
+pub enum Axis {
+  AxisX,
+  AxisY,
+  AxisZ,
 }
 
-pub struct kd_tree {
+pub struct KdTree {
   pub root: uint,
-  pub nodes: ~[kd_tree_node]
+  pub nodes: ~[KdTreeNode]
 }
 
-pub enum kd_tree_node {
-  leaf( u32, u32 ),
-  node( axis, f32, u32 )
+pub enum KdTreeNode {
+  KdLeaf( u32, u32 ),
+  KdNode( Axis, f32, u32 )
 }
 
 fn find_split_plane( distances: &[f32], indices: &[uint], faces: &[uint] ) -> f32 {
@@ -78,14 +78,14 @@ fn split_triangles( splitter: f32, distances: &[f32], indices: &[uint], faces: &
 }
 
 fn build_leaf(
-  kd_tree_nodes : &mut ~[kd_tree_node],
+  kd_tree_nodes : &mut ~[KdTreeNode],
   new_indices: &mut ~[uint],
   indices: &[uint],
   faces: &[uint]
   ) -> uint {
 
   let next_face_ix : u32 = (new_indices.len() as u32) / 3u32;
-  kd_tree_nodes.push(leaf( next_face_ix, (faces.len() as u32) ));
+  kd_tree_nodes.push(KdLeaf( next_face_ix, (faces.len() as u32) ));
 
   for f in faces.iter() {
     let f = *f;
@@ -97,7 +97,7 @@ fn build_leaf(
 }
 
 fn build_kd_tree<'r>(
-  kd_tree_nodes : &mut ~[kd_tree_node],
+  kd_tree_nodes : &mut ~[KdTreeNode],
   new_indices: &mut ~[uint],
   maxdepth: uint,
   xdists: &'r [f32],
@@ -114,12 +114,12 @@ fn build_kd_tree<'r>(
 
   let extent = aabbmax - aabbmin;
   let axis = if extent.x > extent.y && extent.x > extent.z {
-    x
+    AxisX
   } else {
-    if extent.y > extent.z { y } else { z }
+    if extent.y > extent.z { AxisY } else { AxisZ }
   };
 
-  let dists = match axis { x => xdists, y => ydists, z => zdists };
+  let dists = match axis { AxisX => xdists, AxisY => ydists, AxisZ => zdists };
 
   let s = find_split_plane( dists, indices, faces );
   let (l,r) = split_triangles( s, dists, indices, faces );
@@ -131,14 +131,14 @@ fn build_kd_tree<'r>(
 
   // adjust bounding boxes for children
   let (left_aabbmax,right_aabbmin) = match axis {
-    x => (Vec3{x:s, ..aabbmax},Vec3{x:s, ..aabbmin}),
-    y => (Vec3{y:s, ..aabbmax},Vec3{y:s, ..aabbmin}),
-    z => (Vec3{z:s, ..aabbmax},Vec3{z:s, ..aabbmin}),
+    AxisX => (Vec3{x:s, ..aabbmax},Vec3{x:s, ..aabbmin}),
+    AxisY => (Vec3{y:s, ..aabbmax},Vec3{y:s, ..aabbmin}),
+    AxisZ => (Vec3{z:s, ..aabbmax},Vec3{z:s, ..aabbmin}),
   };
 
   // allocate node from nodes-array, and recursively build children
   let ix = kd_tree_nodes.len();
-  kd_tree_nodes.push( node(axis,0f32,0u32) );
+  kd_tree_nodes.push( KdNode(axis,0f32,0u32) );
 
   build_kd_tree(
     &mut *kd_tree_nodes,
@@ -167,28 +167,28 @@ fn build_kd_tree<'r>(
     r
     );
 
-  kd_tree_nodes[ix] = node(axis, s as f32, right_child_ix as u32);
+  kd_tree_nodes[ix] = KdNode(axis, s as f32, right_child_ix as u32);
 
-  return ix;
+  ix
 }
 
-pub fn count_kd_tree_nodes( t: &kd_tree ) -> (uint, uint) {
+pub fn count_kd_tree_nodes( t: &KdTree ) -> (uint, uint) {
   count_kd_tree_nodes_( t.root, t.nodes )
 }
 
-fn count_kd_tree_nodes_( root: uint, nodes: &[kd_tree_node]) -> (uint, uint) {
+fn count_kd_tree_nodes_( root: uint, nodes: &[KdTreeNode]) -> (uint, uint) {
   use std::cmp::max;
   match nodes[root] {
-    node(_,_,r) => {
+    KdNode(_,_,r) => {
       let (d0,c0) = count_kd_tree_nodes_( root+1u, nodes);
       let (d1,c1) = count_kd_tree_nodes_( (r as uint), nodes);
       (max(d0,d1)+1u, c0+c1+1u)
     }
-    leaf(_,_) => (1u, 1u)
+    KdLeaf(_,_) => (1u, 1u)
   }
 }
 
-pub fn read_mesh(fname: &str) -> mesh {
+pub fn read_mesh(fname: &str) -> Mesh {
   io::print("Reading model file...");
   let polys = read_polysoup( fname );
 
@@ -247,8 +247,8 @@ pub fn read_mesh(fname: &str) -> mesh {
     aabbmax,
     polys.indices,
     faces.as_slice());
-  mesh { polys: polysoup{vertices: transformed_verts, indices: new_indices, .. polys},
-  kd_tree: kd_tree{ root: rootnode, nodes: nodes} , bounding_box: aabb{min: aabbmin, max: aabbmax} }
+  Mesh { polys: Polysoup{vertices: transformed_verts, indices: new_indices, .. polys},
+  kd_tree: KdTree{ root: rootnode, nodes: nodes} , bounding_box: aabb{min: aabbmin, max: aabbmax} }
 }
 
 fn parse_faceindex(s: &str) ->  uint {
@@ -261,7 +261,7 @@ fn parse_faceindex(s: &str) ->  uint {
   from_str::<uint>(ix_str).unwrap()-1u
 }
 
-fn read_polysoup(fname: &str) -> polysoup {
+fn read_polysoup(fname: &str) -> Polysoup {
   let mut reader = File::open_mode( &Path::new(fname), Open, Read ).map(|f| BufferedReader::new(f)).ok().expect("Could not open file!");
   let mut vertices = ~[];
   let mut indices = ~[];
@@ -348,7 +348,7 @@ fn read_polysoup(fname: &str) -> polysoup {
   }
   println!("Foobar");
 
-  polysoup{
+  Polysoup{
     vertices: vertices,
     indices: indices,
     normals: vert_normals.move_iter().map( |vec|vec.normalized() ).collect()

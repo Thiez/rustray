@@ -125,21 +125,23 @@ fn sample_cosine_hemisphere( rnd: &rand_env, n: Vec3, body: |Vec3|->() ) {
 }
 
 #[inline(always)]
-fn get_triangle( m : &model::polysoup, ix : uint ) -> Triangle{
-  Triangle{   p1: m.vertices[ m.indices[ix*3   ] ],
-  p2: m.vertices[ m.indices[ix*3+1] ],
-  p3: m.vertices[ m.indices[ix*3+2] ] }
+fn get_triangle( m : &model::Polysoup, ix : uint ) -> Triangle{
+  Triangle{
+    p1: m.vertices[ m.indices[ix*3] ],
+    p2: m.vertices[ m.indices[ix*3+1] ],
+    p3: m.vertices[ m.indices[ix*3+2] ]
+  }
 }
 
 #[inline(always)]
-fn clamp( x: f32, lo: f32, hi: f32 ) -> f32{
+fn clamp( x: f32, lo: f32, hi: f32 ) -> f32 {
   if x < lo { lo } else if x > hi { hi } else { x }
 }
 
 #[inline]
 fn trace_kd_tree(
-  polys: &model::polysoup,
-  kd_tree_nodes: &[model::kd_tree_node],
+  polys: &model::Polysoup,
+  kd_tree_nodes: &[model::KdTreeNode],
   kd_tree_root: uint,
   r: &Ray,
   inv_dir: Vec3,
@@ -170,7 +172,7 @@ fn trace_kd_tree(
     }
 
     match kd_tree_nodes[cur_node] {
-      model::leaf(tri_begin, tri_count) => {
+      model::KdLeaf(tri_begin, tri_count) => {
         let mut tri_index : u32 = tri_begin;
         while tri_index < tri_begin+tri_count {
 
@@ -200,12 +202,12 @@ fn trace_kd_tree(
           return res;
         }
       }
-      model::node(axis, splitter, right_tree) => {
+      model::KdNode(axis, splitter, right_tree) => {
         // find the scalar direction/origin for the current axis
         let (inv_dir_scalar, origin) = match axis {
-          model::x => { (inv_dir.x, r.origin.x) }
-          model::y => { (inv_dir.y, r.origin.y) }
-          model::z => { (inv_dir.z, r.origin.z) }
+          model::AxisX => { (inv_dir.x, r.origin.x) }
+          model::AxisY => { (inv_dir.y, r.origin.y) }
+          model::AxisZ => { (inv_dir.z, r.origin.z) }
         };
         // figure out which side of the spliting plane the ray origin is
         // i.e. which child we need to test first.
@@ -234,8 +236,8 @@ fn trace_kd_tree(
 
 #[inline]
 fn trace_kd_tree_shadow(
-  polys: &model::polysoup,
-  kd_tree_nodes: &[model::kd_tree_node],
+  polys: &model::Polysoup,
+  kd_tree_nodes: &[model::KdTreeNode],
   kd_tree_root: uint,
   r: &Ray,
   inv_dir: Vec3,
@@ -250,7 +252,7 @@ fn trace_kd_tree_shadow(
   loop {
 
     match kd_tree_nodes[cur_node] {
-      model::leaf(tri_begin, tri_count) => {
+      model::KdLeaf(tri_begin, tri_count) => {
 
         let mut tri_index = tri_begin;
         while tri_index < tri_begin + tri_count {
@@ -269,13 +271,13 @@ fn trace_kd_tree_shadow(
           return false;
         }
       }
-      model::node(axis, splitter, right_tree) => {
+      model::KdNode(axis, splitter, right_tree) => {
 
         // find the scalar direction/origin for the current axis
         let (inv_dir_scalar, origin) = match axis {
-          model::x => { (inv_dir.x, r.origin.x) }
-          model::y => { (inv_dir.y, r.origin.y) }
-          model::z => { (inv_dir.z, r.origin.z) }
+          model::AxisX => { (inv_dir.x, r.origin.x) }
+          model::AxisY => { (inv_dir.y, r.origin.y) }
+          model::AxisZ => { (inv_dir.z, r.origin.z) }
         };
 
         // figure out which side of the spliting plane the ray origin is
@@ -305,7 +307,7 @@ fn trace_kd_tree_shadow(
 }
 
 #[inline]
-fn trace_soup( polys: &model::polysoup, r: &Ray) -> Option<(HitResult, uint)>{
+fn trace_soup( polys: &model::Polysoup, r: &Ray) -> Option<(HitResult, uint)>{
 
   let mut res : Option<(HitResult, uint)> = None;
 
@@ -474,7 +476,7 @@ fn trace_checkerboard( checkerboard_height: f32, r : &Ray, mint: f32, maxt: f32)
 }
 
 #[inline]
-fn trace_ray( r : &Ray, mesh : &model::mesh, mint: f32, maxt: f32) -> Option<intersection> {
+fn trace_ray( r : &Ray, mesh : &model::Mesh, mint: f32, maxt: f32) -> Option<intersection> {
 
   let use_kd_tree = true;
 
@@ -535,7 +537,7 @@ fn trace_ray( r : &Ray, mesh : &model::mesh, mint: f32, maxt: f32) -> Option<int
 }
 
 #[inline]
-fn trace_ray_shadow( r: &Ray, mesh: &model::mesh, mint: f32, maxt: f32) -> bool {
+fn trace_ray_shadow( r: &Ray, mesh: &model::Mesh, mint: f32, maxt: f32) -> bool {
 
   let y_size = (mesh.bounding_box.max - mesh.bounding_box.min).y;
 
@@ -557,7 +559,7 @@ fn trace_ray_shadow( r: &Ray, mesh: &model::mesh, mint: f32, maxt: f32) -> bool 
 
 
 #[inline(always)]
-fn get_color( r: &Ray, mesh: &model::mesh, lights: &[Light], rnd: &rand_env, tmin: f32, tmax: f32, depth: uint) -> Vec3 {
+fn get_color( r: &Ray, mesh: &model::Mesh, lights: &[Light], rnd: &rand_env, tmin: f32, tmax: f32, depth: uint) -> Vec3 {
   let theta = Vec3::new(0.0,1.0,0.0).dot( &r.dir );
   let default_color = Vec3::new(clamp(1.0-theta*4.0,0.0,0.75)+0.25, clamp(0.5-theta*3.0,0.0,0.75)+0.25, theta);    // fake sky colour
 
@@ -598,7 +600,7 @@ fn gamma_correct( v : Vec3 ) -> Vec3 {
 }
 
 struct TracetaskData {
-  meshArc: ::sync::Arc<model::mesh>,
+  meshArc: ::sync::Arc<model::Mesh>,
   horizontalFOV: f32,
   width: uint,
   height: uint,
@@ -644,7 +646,7 @@ fn tracetask(data: ~TracetaskData) -> ~[Color] {
 }
 
 fn generate_raytraced_image_single(
-  mesh: model::mesh,
+  mesh: model::Mesh,
   horizontalFOV: f32,
   width: uint,
   height: uint,
@@ -677,7 +679,7 @@ fn generate_raytraced_image_single(
 // the image in horizontal chunks of step_size pixels high, and divides these between the
 // tasks. There is no work-stealing :(
 fn generate_raytraced_image_multi(
-  mesh: model::mesh,
+  mesh: model::Mesh,
   horizontalFOV: f32,
   width: uint,
   height: uint,
@@ -715,7 +717,7 @@ fn generate_raytraced_image_multi(
 }
 
 pub fn generate_raytraced_image(
-  mesh: model::mesh,
+  mesh: model::Mesh,
   horizontalFOV: f32,
   width: uint,
   height: uint,
