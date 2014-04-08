@@ -37,13 +37,13 @@ fn get_ray( horizontalFOV: f32, width: uint, height: uint, x: uint, y: uint, sam
 }
 
 #[deriving(Clone)]
-struct rand_env {
+struct RandEnv {
   floats: ~[f32],
   disk_samples: ~[(f32,f32)],
   hemicos_samples: ~[Vec3]
 }
 
-fn get_rand_env() -> rand_env {
+fn get_rand_env() -> RandEnv {
   let mut gen = task_rng();
 
   let disk_samples = Vec::from_fn(513u, |_x| {
@@ -63,14 +63,15 @@ fn get_rand_env() -> rand_env {
     }
   };
 
-  rand_env{
+  RandEnv {
     floats: Vec::from_fn(513u, |_x| gen.gen() ).move_iter().collect(),
     disk_samples: disk_samples.move_iter().collect(),
-    hemicos_samples: hemicos_samples.move_iter().collect() }
+    hemicos_samples: hemicos_samples.move_iter().collect()
+  }
 }
 
 #[inline]
-fn sample_floats_2d_offset( offset: uint, rnd: &rand_env, num: uint, body: |f32,f32|->() ) {
+fn sample_floats_2d_offset( offset: uint, rnd: &RandEnv, num: uint, body: |f32,f32|->() ) {
   let mut ix = offset % rnd.floats.len();
   for _ in range(0,num) {
     let r1 = rnd.floats[ix];
@@ -82,7 +83,7 @@ fn sample_floats_2d_offset( offset: uint, rnd: &rand_env, num: uint, body: |f32,
 }
 
 #[inline]
-fn sample_disk( rnd: &rand_env, num: uint, body: |f32,f32|->() ){
+fn sample_disk( rnd: &RandEnv, num: uint, body: |f32,f32|->() ){
   let mut rng = task_rng();
   if num == 1 {
     body(0.0,0.0);
@@ -97,7 +98,7 @@ fn sample_disk( rnd: &rand_env, num: uint, body: |f32,f32|->() ){
 }
 
 #[inline(always)]
-fn sample_stratified_2d( rnd: &rand_env, m: uint, n : uint, body: |f32,f32|->() ) {
+fn sample_stratified_2d( rnd: &RandEnv, m: uint, n : uint, body: |f32,f32|->() ) {
   let m_inv = 1.0/(m as f32);
   let n_inv = 1.0/(n as f32);
   let mut rng = task_rng();
@@ -114,7 +115,7 @@ fn sample_stratified_2d( rnd: &rand_env, m: uint, n : uint, body: |f32,f32|->() 
 }
 
 #[inline(always)]
-fn sample_cosine_hemisphere( rnd: &rand_env, n: Vec3, body: |Vec3|->() ) {
+fn sample_cosine_hemisphere( rnd: &RandEnv, n: Vec3, body: |Vec3|->() ) {
   let mut rng = task_rng();
   let rot_to_up = rotate_to_up(n);
   let random_rot = rotate_y( rnd.floats[ rng.gen::<uint>() % rnd.floats.len() ] ); // random angle about y
@@ -351,7 +352,7 @@ impl Light {
 }
 
 #[inline(always)]
-fn direct_lighting( lights: &[Light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &rand_env, depth: uint, occlusion_probe: |Vec3| -> bool ) -> Vec3 {
+fn direct_lighting( lights: &[Light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &RandEnv, depth: uint, occlusion_probe: |Vec3| -> bool ) -> Vec3 {
 
   let mut direct_light = Vec3::new(0.0,0.0,0.0);
   for l in lights.iter() {
@@ -399,7 +400,7 @@ fn direct_lighting( lights: &[Light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &
 
 #[inline]
 fn shade(
-  pos: Vec3, n: Vec3, n_face: Vec3, r: &Ray, color: Vec3, reflectivity: f32, lights: &[Light], rnd: &rand_env, depth: uint,
+  pos: Vec3, n: Vec3, n_face: Vec3, r: &Ray, color: Vec3, reflectivity: f32, lights: &[Light], rnd: &RandEnv, depth: uint,
   occlusion_probe: |Vec3| -> bool,
   color_probe: |Vec3| -> Vec3 ) -> Vec3 {
 
@@ -559,7 +560,7 @@ fn trace_ray_shadow( r: &Ray, mesh: &model::Mesh, mint: f32, maxt: f32) -> bool 
 
 
 #[inline(always)]
-fn get_color( r: &Ray, mesh: &model::Mesh, lights: &[Light], rnd: &rand_env, tmin: f32, tmax: f32, depth: uint) -> Vec3 {
+fn get_color( r: &Ray, mesh: &model::Mesh, lights: &[Light], rnd: &RandEnv, tmin: f32, tmax: f32, depth: uint) -> Vec3 {
   let theta = Vec3::new(0.0,1.0,0.0).dot( &r.dir );
   let default_color = Vec3::new(clamp(1.0-theta*4.0,0.0,0.75)+0.25, clamp(0.5-theta*3.0,0.0,0.75)+0.25, theta);    // fake sky colour
 
@@ -609,7 +610,7 @@ struct TracetaskData {
   height_stop: uint,
   sample_coverage_inv: f32,
   lights: ~[Light],
-  rnd: ~rand_env
+  rnd: ~RandEnv
 }
 
 #[inline]
