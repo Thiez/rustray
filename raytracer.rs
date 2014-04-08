@@ -1,8 +1,8 @@
-use super::math3d::{Vec3,Mtx33,Ray,Triangle,HitResult,aabb,cosine_hemisphere_sample,rotate_to_up,rotate_y};
+use super::math3d::{Vec3,Ray,Triangle,HitResult,cosine_hemisphere_sample,rotate_to_up,rotate_y};
 use super::consts;
 use super::concurrent;
 use super::model;
-use std::{io,libc,f32};
+use std::{io,f32};
 use std::vec::{Vec};
 use std::cmp::{min};
 use std::num::Float;
@@ -84,7 +84,7 @@ fn sample_floats_2d_offset( offset: uint, rnd: &rand_env, num: uint, body: |f32,
 #[inline]
 fn sample_disk( rnd: &rand_env, num: uint, body: |f32,f32|->() ){
   let mut rng = task_rng();
-  if ( num == 1 ) {
+  if num == 1 {
     body(0.0,0.0);
   } else {
     let mut ix = rng.gen::<uint>() % rnd.disk_samples.len(); // start at random location
@@ -94,13 +94,6 @@ fn sample_disk( rnd: &rand_env, num: uint, body: |f32,f32|->() ){
       ix = (ix + 1) % rnd.disk_samples.len();
     };
   }
-}
-
-// Sample 2 floats at a time, starting with an offset that's passed in
-#[inline]
-fn sample_floats_2d( rnd: &rand_env, num: uint, body: |f32,f32|->() ) {
-  let mut rng = task_rng();
-  sample_floats_2d_offset( rng.gen(), rnd, num, body);
 }
 
 #[inline(always)]
@@ -166,7 +159,7 @@ fn trace_kd_tree(
     // skip any nodes that have been superceded
     // by a closer hit.
     while mint >= closest_hit {
-      if ( stack.len() > 0 ){
+      if stack.len() > 0 {
         let (n,mn,mx) = stack.pop().unwrap();
         cur_node = n;
         mint = mn;
@@ -198,7 +191,7 @@ fn trace_kd_tree(
           tri_index += 1;
         }
 
-        if ( stack.len() > 0 ){
+        if stack.len() > 0 {
           let (n,mn,mx) = stack.pop().unwrap();
           cur_node = n;
           mint = mn;
@@ -262,12 +255,12 @@ fn trace_kd_tree_shadow(
         let mut tri_index = tri_begin;
         while tri_index < tri_begin + tri_count {
           let t = &get_triangle( polys, tri_index as uint);
-          if ( r.intersect(t).is_some() ) {
+          if r.intersect(t).is_some() {
             return true;
           }
           tri_index += 1;
         }
-        if ( stack.len() > 0 ){
+        if stack.len() > 0 {
           let (n,mn,mx) = stack.pop().unwrap();
           cur_node = n as uint;
           mint = mn;
@@ -542,7 +535,7 @@ fn trace_ray_shadow( r: &Ray, mesh: &model::mesh, mint: f32, maxt: f32) -> bool 
   // compute checkerboard color, if we hit the floor plane
   let (checker_intersection, new_maxt) = trace_checkerboard(-y_size*0.5,r,mint,maxt);
 
-  if ( checker_intersection.is_some() ) {
+  if checker_intersection.is_some() {
     return true;
   }
 

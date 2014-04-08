@@ -1,9 +1,8 @@
-use super::math3d::{Vec3,Mtx33,Ray,Triangle,HitResult,aabb,cosine_hemisphere_sample,rotate_to_up,rotate_y};
+use super::math3d::{Vec3,aabb};
 
 use std::f32;
 use std::io;
-use std::io::{Reader,BufferedReader,File,Open,Read};
-use std::path;
+use std::io::{BufferedReader,File,Open,Read};
 
 pub struct polysoup {
   pub vertices: ~[Vec3],
@@ -272,7 +271,7 @@ fn read_polysoup(fname: &str) -> polysoup {
   loop {
     let line = match reader.read_line() {
       Ok(line) => line,
-      Error => break,
+      Err(_) => break,
     };
     if line.is_empty() {
       continue;
