@@ -6,7 +6,7 @@ use std::{io,f32,uint};
 use std::vec::{Vec};
 use std::cmp::{min};
 use std::num::Float;
-use rand::{Rng,task_rng};
+use rand::{Rng,task_rng,TaskRng};
 
 pub struct Color {
   pub r:u8,
@@ -75,8 +75,10 @@ fn get_ray( horizontalFOV: f32, width: uint, height: uint, x: uint, y: uint, sam
   let dirx = (x as f32) - ((width/2) as f32) + jitterx;
   let diry = -((y as f32) - ((height/2) as f32)) + jittery;
   let dirz = -((width/2u) as f32) / (horizontalFOV*0.5).tan();
-  Ray{ origin: Vec3::new(0.0, 0.0, 1.0),
-  dir: Vec3::new( dirx, diry, dirz).normalized() }
+  Ray{
+    origin: Vec3::new(0.0, 0.0, 1.0),
+    dir: Vec3::new( dirx, diry, dirz).normalized()
+  }
 }
 
 #[deriving(Clone)]
@@ -100,8 +102,10 @@ fn get_rand_env() -> RandEnv {
 
   for x in range(0, consts::NUM_GI_SAMPLES_SQRT) {
     for y in range(0, consts::NUM_GI_SAMPLES_SQRT) {
-      let (u,v) = (    ( (x as f32) + gen.gen() ) / (consts::NUM_GI_SAMPLES_SQRT as f32),
-      ( (y as f32) + gen.gen() ) / (consts::NUM_GI_SAMPLES_SQRT as f32) );
+      let (u,v) = (
+        ( x as f32 + gen.gen() ) / (consts::NUM_GI_SAMPLES_SQRT as f32),
+        ( y as f32 + gen.gen() ) / (consts::NUM_GI_SAMPLES_SQRT as f32)
+      );
       hemicos_samples.push(cosine_hemisphere_sample(u,v));
     }
   };
@@ -140,6 +144,63 @@ fn sample_disk( rnd: &RandEnv, num: uint, body: |f32,f32|->() ){
   }
 }
 
+struct Stratified2dIterator<'rand> {
+  rnd: &'rand RandEnv,
+  rng: TaskRng,
+  rndIndex: uint,
+  mSamples: uint,
+  nSamples: uint,
+  mIndex: uint,
+  nIndex: uint,
+  m_inv: f32,
+  n_inv: f32,
+  offset: uint,
+}
+
+impl<'rand> Stratified2dIterator<'rand> {
+  fn new(rnd: &'rand RandEnv, mSamples: uint, nSamples: uint) -> Stratified2dIterator<'rand> {
+    let mut rng = task_rng();
+    let rndIndex = rng.gen::<uint>() % rnd.disk_samples.len();
+    let offset = rng.gen::<uint>();
+    Stratified2dIterator {
+      rnd: rnd,
+      rng: rng,
+      rndIndex: rndIndex,
+      mSamples: mSamples,
+      nSamples: nSamples,
+      mIndex: 0,
+      nIndex: uint::MAX, // overflows on first call to next()
+      m_inv: 1.0 / (mSamples as f32),
+      n_inv: 1.0 / (nSamples as f32),
+      offset: offset,
+    }
+  }
+}
+
+impl<'rand> Iterator<(f32,f32)> for Stratified2dIterator<'rand> {
+  fn next(&mut self) -> Option<(f32,f32)> {
+    self.nIndex += 1;
+    if self.nIndex >= self.nSamples {
+      self.rndIndex = self.rng.gen::<uint>() & self.rnd.disk_samples.len();
+      self.nIndex = 0;
+      self.mIndex += 1;
+      if self.mIndex >= self.mSamples {
+        return None;
+      }
+    }
+    let offset = self.offset + self.nSamples * self.nIndex;
+    if self.nSamples == 1 {
+      Some((1.0,1.0))
+    } else {
+      let len = self.rnd.floats.len();
+      let r1 = self.rnd.floats[offset % len];
+      let r2 = self.rnd.floats[(offset + 1) % len];
+      self.offset += 2;
+      Some((r1,r2))
+    }
+  }
+}
+
 #[inline(always)]
 fn sample_stratified_2d( rnd: &RandEnv, m: uint, n : uint, body: |f32,f32|->() ) {
   let m_inv = 1.0/(m as f32);
@@ -149,7 +210,7 @@ fn sample_stratified_2d( rnd: &RandEnv, m: uint, n : uint, body: |f32,f32|->() )
   for samplex in range( 0, m ) {
     // sample one "row" of 2d floats
     let mut sampley = 0;
-    sample_floats_2d_offset( (start_offset) + (n*samplex as uint), rnd, n, |u,v| {
+    sample_floats_2d_offset((start_offset) + (n*samplex as uint), rnd, n, |u,v| {
       body(  ((samplex as f32) + u) * m_inv,
       ((sampley as f32) + v) * n_inv );
       sampley += 1;
