@@ -441,7 +441,7 @@ fn shade(
 }
 
 
-struct intersection {
+struct Intersection {
   pos: Vec3,
   n: Vec3,
   n_face: Vec3,
@@ -450,7 +450,7 @@ struct intersection {
 }
 
 #[inline]
-fn trace_checkerboard( checkerboard_height: f32, r : &Ray, mint: f32, maxt: f32) -> (Option<intersection>, f32) {
+fn trace_checkerboard( checkerboard_height: f32, r : &Ray, mint: f32, maxt: f32) -> (Option<Intersection>, f32) {
   // trace against checkerboard first
   let checker_hit_t = (checkerboard_height - r.origin.y) / r.dir.y;
 
@@ -463,7 +463,7 @@ fn trace_checkerboard( checkerboard_height: f32, r : &Ray, mint: f32, maxt: f32)
     let (u,v) = ((pos.x*5.0).floor() as int, (pos.z*5.0).floor() as int);
     let is_white = (u + v) % 2 == 0;
     let color = if is_white { Vec3::new(1.0,1.0,1.0) } else { Vec3::new(1.0,0.5,0.5) };
-    let intersection = Some( intersection{
+    let intersection = Some( Intersection{
       pos: pos,
       n: Vec3::new(0.0,1.0,0.0),
       n_face: Vec3::new(0.0,1.0,0.0),
@@ -476,7 +476,7 @@ fn trace_checkerboard( checkerboard_height: f32, r : &Ray, mint: f32, maxt: f32)
 }
 
 #[inline]
-fn trace_ray( r : &Ray, mesh : &model::Mesh, mint: f32, maxt: f32) -> Option<intersection> {
+fn trace_ray( r : &Ray, mesh : &model::Mesh, mint: f32, maxt: f32) -> Option<Intersection> {
 
   let use_kd_tree = true;
 
@@ -523,7 +523,7 @@ fn trace_ray( r : &Ray, mesh : &model::Mesh, mint: f32, maxt: f32) -> Option<int
       );
       let n_face = (v1 - v0).cross(&(v2 - v0)).normalized();
 
-      Some( intersection{
+      Some( Intersection{
         pos: pos,
         n: n,
         n_face: n_face,
@@ -568,7 +568,7 @@ fn get_color( r: &Ray, mesh: &model::Mesh, lights: &[Light], rnd: &rand_env, tmi
   }
 
   match trace_ray( r, mesh, tmin, tmax ) {
-    Some(intersection{pos,n,n_face,color,reflectivity}) => {
+    Some(Intersection{pos,n,n_face,color,reflectivity}) => {
       let surface_origin = pos + n_face.scale(0.000002);
 
       shade(pos, n, n_face, r, color, reflectivity, lights, rnd, depth,
