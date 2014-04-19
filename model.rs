@@ -5,9 +5,9 @@ use std::io;
 use std::io::{BufferedReader,File,Open,Read};
 
 pub struct Polysoup {
-  pub vertices: ~[Vec3],
-  pub indices: ~[uint],
-  pub normals: ~[Vec3],
+  pub vertices: Vec<Vec3>,
+  pub indices: Vec<uint>,
+  pub normals: Vec<Vec3>,
 }
 
 pub struct Mesh {
@@ -24,7 +24,7 @@ pub enum Axis {
 
 pub struct KdTree {
   pub root: uint,
-  pub nodes: ~[KdTreeNode]
+  pub nodes: Vec<KdTreeNode>,
 }
 
 pub enum KdTreeNode {
@@ -52,9 +52,9 @@ fn find_split_plane( distances: &[f32], indices: &[uint], faces: &[uint] ) -> f3
   }
 }
 
-fn split_triangles( splitter: f32, distances: &[f32], indices: &[uint], faces: &[uint] ) -> (~[uint],~[uint]) {
-  let mut l = ~[];
-  let mut r = ~[];
+fn split_triangles( splitter: f32, distances: &[f32], indices: &[uint], faces: &[uint] ) -> (Vec<uint>,Vec<uint>) {
+  let mut l = Vec::new();
+  let mut r = Vec::new();
 
   for f in faces.iter() {
     let f = *f;
@@ -78,8 +78,8 @@ fn split_triangles( splitter: f32, distances: &[f32], indices: &[uint], faces: &
 }
 
 fn build_leaf(
-  kd_tree_nodes : &mut ~[KdTreeNode],
-  new_indices: &mut ~[uint],
+  kd_tree_nodes : &mut Vec<KdTreeNode>,
+  new_indices: &mut Vec<uint>,
   indices: &[uint],
   faces: &[uint]
   ) -> uint {
@@ -97,8 +97,8 @@ fn build_leaf(
 }
 
 fn build_kd_tree<'r>(
-  kd_tree_nodes : &mut ~[KdTreeNode],
-  new_indices: &mut ~[uint],
+  kd_tree_nodes : &mut Vec<KdTreeNode>,
+  new_indices: &mut Vec<uint>,
   maxdepth: uint,
   xdists: &'r [f32],
   ydists: &'r [f32],
@@ -150,7 +150,7 @@ fn build_kd_tree<'r>(
     aabbmin,
     left_aabbmax,
     indices,
-    l
+    l.as_slice()
     );
   // left child ix is implied to be ix+1
 
@@ -164,16 +164,16 @@ fn build_kd_tree<'r>(
     right_aabbmin,
     aabbmax,
     indices,
-    r
+    r.as_slice()
     );
 
-  kd_tree_nodes[ix] = KdNode(axis, s as f32, right_child_ix as u32);
+  *kd_tree_nodes.get_mut(ix) = KdNode(axis, s as f32, right_child_ix as u32);
 
   ix
 }
 
 pub fn count_kd_tree_nodes( t: &KdTree ) -> (uint, uint) {
-  count_kd_tree_nodes_( t.root, t.nodes )
+  count_kd_tree_nodes_( t.root, t.nodes.as_slice() )
 }
 
 fn count_kd_tree_nodes_( root: uint, nodes: &[KdTreeNode]) -> (uint, uint) {
@@ -212,7 +212,7 @@ pub fn read_mesh(fname: &str) -> Mesh {
   let downscale = 1.0f32 / (aabbmax - aabbmin).length();
   let offset = (aabbmin + aabbmax).scale(0.5f32);
 
-  let mut transformed_verts = ~[];
+  let mut transformed_verts = Vec::new();
 
 
   for v in polys.vertices.iter() {
@@ -223,9 +223,9 @@ pub fn read_mesh(fname: &str) -> Mesh {
   aabbmax = (aabbmax - offset).scale(downscale);
 
   // de-mux vertices for easier access later
-  let mut xdists = ~[];
-  let mut ydists = ~[];
-  let mut zdists = ~[];
+  let mut xdists = Vec::new();
+  let mut ydists = Vec::new();
+  let mut zdists = Vec::new();
 
   for v in transformed_verts.iter() {
     xdists.push(v.x);
@@ -233,19 +233,19 @@ pub fn read_mesh(fname: &str) -> Mesh {
     zdists.push(v.z);
   }
 
-  let mut nodes = ~[];
-  let mut new_indices = ~[];
+  let mut nodes = Vec::new();
+  let mut new_indices = Vec::new();
 
   let rootnode = build_kd_tree(
     &mut nodes,
     &mut new_indices,
     100u,
-    xdists,
-    ydists,
-    zdists,
+    xdists.as_slice(),
+    ydists.as_slice(),
+    zdists.as_slice(),
     aabbmin,
     aabbmax,
-    polys.indices,
+    polys.indices.as_slice(),
     faces.as_slice());
   Mesh { polys: Polysoup{vertices: transformed_verts, indices: new_indices, .. polys},
   kd_tree: KdTree{ root: rootnode, nodes: nodes} , bounding_box: BoundingBox{min: aabbmin, max: aabbmax} }
@@ -263,10 +263,10 @@ fn parse_faceindex(s: &str) ->  uint {
 
 fn read_polysoup(fname: &str) -> Polysoup {
   let mut reader = File::open_mode( &Path::new(fname), Open, Read ).map(|f| BufferedReader::new(f)).ok().expect("Could not open file!");
-  let mut vertices = ~[];
-  let mut indices = ~[];
+  let mut vertices = Vec::new();
+  let mut indices = Vec::new();
 
-  let mut vert_normals : ~[Vec3] = ~[];
+  let mut vert_normals : Vec<Vec3> = Vec::new();
 
   loop {
     let line = match reader.read_line() {
@@ -278,16 +278,16 @@ fn read_polysoup(fname: &str) -> Polysoup {
     }
 
     let mut num_texcoords = 0u;
-    let mut tokens = ~[];
+    let mut tokens = Vec::new();
     for s in line.split(' ') { tokens.push(s.trim()) };
 
-    if tokens[0] == "v" {
+    if *tokens.get(0) == "v" {
       assert!(tokens.len() == 4u);
 
       let v = Vec3::new(
-        from_str::<f32>(tokens[1]).unwrap(),
-        from_str::<f32>(tokens[2]).unwrap(),
-        from_str::<f32>(tokens[3]).unwrap()
+        from_str::<f32>(*tokens.get(1)).unwrap(),
+        from_str::<f32>(*tokens.get(2)).unwrap(),
+        from_str::<f32>(*tokens.get(3)).unwrap()
       );
 
       assert!(!v.x.is_nan());
@@ -297,23 +297,27 @@ fn read_polysoup(fname: &str) -> Polysoup {
       vertices.push(v);
       vert_normals.push(Vec3::new(0f32,0f32,0f32));
 
-    } else if tokens[0] == "f" {
+    } else if *tokens.get(0) == "f" {
       if tokens.len() == 4u || tokens.len() == 5u {
-        let mut face_triangles = ~[];
+        let mut face_triangles = Vec::new();
 
         if tokens.len() == 4u {
-          let (i0,i1,i2) = (  parse_faceindex(tokens[1]),
-          parse_faceindex(tokens[2]),
-          parse_faceindex(tokens[3]) );
+          let (i0,i1,i2) = (
+            parse_faceindex(*tokens.get(1)),
+            parse_faceindex(*tokens.get(2)),
+            parse_faceindex(*tokens.get(3))
+          );
 
           face_triangles.push((i0, i1, i2));
         } else {
           assert!(tokens.len() == 5u);
           // quad, triangulate
-          let (i0,i1,i2,i3) = (   parse_faceindex(tokens[1]),
-          parse_faceindex(tokens[2]),
-          parse_faceindex(tokens[3]),
-          parse_faceindex(tokens[4]) );
+          let (i0,i1,i2,i3) = (
+            parse_faceindex(*tokens.get(1)),
+            parse_faceindex(*tokens.get(2)),
+            parse_faceindex(*tokens.get(3)),
+            parse_faceindex(*tokens.get(4))
+          );
 
           face_triangles.push((i0,i1,i2));
           face_triangles.push((i0,i2,i3));
@@ -325,20 +329,20 @@ fn read_polysoup(fname: &str) -> Polysoup {
           indices.push(i1);
           indices.push(i2);
 
-          let e1 = vertices[i1] - vertices[i0];
-          let e2 = vertices[i2] - vertices[i0];
+          let e1 = *vertices.get(i1) - *vertices.get(i0);
+          let e2 = *vertices.get(i2) - *vertices.get(i0);
           let n = (e1.cross(&e2)).normalized();
 
-          vert_normals[i0] = vert_normals[i0] + n;
-          vert_normals[i1] = vert_normals[i1] + n;
-          vert_normals[i2] = vert_normals[i2] + n;
+          *vert_normals.get_mut(i0) = vert_normals.get(i0) + n;
+          *vert_normals.get_mut(i1) = vert_normals.get(i1) + n;
+          *vert_normals.get_mut(i2) = vert_normals.get(i2) + n;
         }
       } else {
         io::println(format!("Polygon with {verts} vertices found. Ignored. Currently rustray only supports 4 vertices", verts=(tokens.len() - 1u)));
       }
-    } else if tokens[0] == "vt" {
+    } else if *tokens.get(0) == "vt" {
       num_texcoords += 1u;
-    } else if tokens[0] != "#" {
+    } else if *tokens.get(0) != "#" {
       io::println(format!("Unrecognized line in .obj file: {s}", s=line));
     }
 

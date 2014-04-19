@@ -211,9 +211,9 @@ impl<'rand> Iterator<Vec3> for CosineHemisphereSampler<'rand> {
 #[inline(always)]
 fn get_triangle( m : &model::Polysoup, ix : uint ) -> Triangle{
   Triangle{
-    p1: m.vertices[ m.indices[ix*3] ],
-    p2: m.vertices[ m.indices[ix*3+1] ],
-    p3: m.vertices[ m.indices[ix*3+2] ]
+    p1: *m.vertices.get( *m.indices.get(ix*3) ),
+    p2: *m.vertices.get( *m.indices.get(ix*3+1) ),
+    p3: *m.vertices.get( *m.indices.get(ix*3+2) )
   }
 }
 
@@ -236,7 +236,7 @@ fn trace_kd_tree(
   let mut res : Option<(HitResult, uint)> = None;
   let mut closest_hit = inmaxt;
 
-  let mut stack : ~[(uint, f32, f32)] = ~[];
+  let mut stack : Vec<(uint, f32, f32)> = Vec::new();
   let mut mint = inmint;
   let mut maxt = inmaxt;
   let mut cur_node = kd_tree_root;
@@ -329,7 +329,7 @@ fn trace_kd_tree_shadow(
   inmaxt: f32 )
 -> bool {
 
-  let mut stack : ~[(u32, f32, f32)] = ~[];
+  let mut stack : Vec<(u32, f32, f32)> = Vec::new();
   let mut mint = inmint;
   let mut maxt = inmaxt;
   let mut cur_node = kd_tree_root;
@@ -577,7 +577,7 @@ fn trace_ray( r : &Ray, mesh : &model::Mesh, mint: f32, maxt: f32) -> Option<Int
 
   // trace against scene
   let trace_result = if use_kd_tree {
-    trace_kd_tree( &mesh.polys, mesh.kd_tree.nodes, mesh.kd_tree.root, r, r.dir.recip(), mint, new_maxt )
+    trace_kd_tree( &mesh.polys, mesh.kd_tree.nodes.as_slice(), mesh.kd_tree.root, r, r.dir.recip(), mint, new_maxt )
   } else {
     trace_soup( &mesh.polys, r)
   };
@@ -587,23 +587,23 @@ fn trace_ray( r : &Ray, mesh : &model::Mesh, mint: f32, maxt: f32) -> Option<Int
       let pos = r.origin + r.dir.scale(hit_info.t);
 
       let (i0,i1,i2) = (
-        mesh.polys.indices[tri_ix*3  ],
-        mesh.polys.indices[tri_ix*3+1],
-        mesh.polys.indices[tri_ix*3+2]
+        *mesh.polys.indices.get(tri_ix*3  ),
+        *mesh.polys.indices.get(tri_ix*3+1),
+        *mesh.polys.indices.get(tri_ix*3+2)
       );
 
       // interpolate vertex normals...
       let n = (
-        mesh.polys.normals[i0].scale(hit_info.barycentric.z) +
-        mesh.polys.normals[i1].scale(hit_info.barycentric.x) +
-        mesh.polys.normals[i2].scale(hit_info.barycentric.y)
+        mesh.polys.normals.get(i0).scale(hit_info.barycentric.z) +
+        mesh.polys.normals.get(i1).scale(hit_info.barycentric.x) +
+        mesh.polys.normals.get(i2).scale(hit_info.barycentric.y)
       ).normalized();
 
       // compute face-normal
       let (v0,v1,v2) = (
-        mesh.polys.vertices[i0],
-        mesh.polys.vertices[i1],
-        mesh.polys.vertices[i2]
+        *mesh.polys.vertices.get(i0),
+        *mesh.polys.vertices.get(i1),
+        *mesh.polys.vertices.get(i2)
       );
       let n_face = (v1 - v0).cross(&(v2 - v0)).normalized();
 
@@ -638,7 +638,7 @@ fn trace_ray_shadow( r: &Ray, mesh: &model::Mesh, mint: f32, maxt: f32) -> bool 
   }
 
   // trace against scene
-  trace_kd_tree_shadow( &mesh.polys, mesh.kd_tree.nodes, mesh.kd_tree.root, r, r.dir.recip(), mint, new_maxt )
+  trace_kd_tree_shadow( &mesh.polys, mesh.kd_tree.nodes.as_slice(), mesh.kd_tree.root, r, r.dir.recip(), mint, new_maxt )
 }
 
 
@@ -777,12 +777,12 @@ fn generate_raytraced_image_multi(
   io::print(format!("using {tasks} tasks ... ", tasks=num_tasks));
   let meshArc = ::sync::Arc::new(mesh);
   let rnd = get_rand_env();
-  let mut workers = ~[];
+  let mut workers = Vec::new();
   for _ in range(0,num_tasks) {
     workers.push(concurrent::ConcurrentCalc::new())
   };
   let step_size = 4;
-  let mut results = ~[];
+  let mut results = Vec::new();
   for i in range(0,(height / step_size)+1) {
     let ttd = ~TracetaskData {   // The data required to trace the rays.
       meshArc: meshArc.clone(),
@@ -796,7 +796,7 @@ fn generate_raytraced_image_multi(
       lights: lights.clone(),
       rnd: rnd.clone()
     };
-    results.push(workers[i % num_tasks].calculate(ttd,tracetask));
+    results.push(workers.get_mut(i % num_tasks).calculate(ttd,tracetask));
   }
   let mut fmap = results.move_iter().flat_map(|f| f.unwrap().move_iter() );
   fmap.collect()

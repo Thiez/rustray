@@ -4,7 +4,7 @@ use std::{comm};
 use sync::Future;
 
 pub struct ConcurrentCalc<T,U> {
-  sender: comm::Sender<(T,proc:Send(T)->U,comm::Sender<U>)>
+  sender: comm::Sender<(T,proc(T):Send->U,comm::Sender<U>)>
 }
 
 impl<T:Send, U:Send> ConcurrentCalc<T,U> {
@@ -12,9 +12,9 @@ impl<T:Send, U:Send> ConcurrentCalc<T,U> {
     let (send, recv) = comm::channel();
     spawn(proc() {
       loop {
-        match recv.recv_opt() {
+        match recv.recv_opt().ok() {
           Some(message) => {
-            let (data,f,s): (T,proc:Send(T)->U,comm::Sender<U>) = message;
+            let (data,f,s): (T,proc(T):Send->U,comm::Sender<U>) = message;
             s.send(f(data))
           },
           None => break
@@ -23,7 +23,7 @@ impl<T:Send, U:Send> ConcurrentCalc<T,U> {
     });
     ConcurrentCalc{ sender: send }
   }
-  pub fn calculate(&mut self, data: T, f: proc:Send(T)->U) -> Future<U> {
+  pub fn calculate(&mut self, data: T, f: proc(T):Send->U) -> Future<U> {
     let (send, recv) = comm::channel();
     self.sender.send( (data,f,send) );
     Future::from_fn(proc(){recv.recv()})
