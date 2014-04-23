@@ -466,7 +466,7 @@ fn direct_lighting( lights: &[Light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &
         let half_vector = (light_vec_n + view_vec).normalized();
 
         let s = n.dot(&half_vector);
-        let specular = s.powf(&175.0);
+        let specular = s.powf(175.0);
 
         let atten = shadow_contrib*l.strength*(1.0/light_vec.length_sq() + specular*0.05);
 
@@ -677,9 +677,9 @@ fn get_color( r: &Ray, mesh: &model::Mesh, lights: &[Light], rnd: &RandEnv, tmin
 #[inline]
 fn gamma_correct( v : Vec3 ) -> Vec3 {
   Vec3::new(
-    v.x.powf( &(1.0/2.2) ),
-    v.y.powf( &(1.0/2.2) ),
-    v.z.powf( &(1.0/2.2) ),
+    v.x.powf( (1.0/2.2) ),
+    v.y.powf( (1.0/2.2) ),
+    v.z.powf( (1.0/2.2) ),
   )
 }
 
