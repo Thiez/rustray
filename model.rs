@@ -1,7 +1,6 @@
 use super::math3d::{Vec3,BoundingBox};
 
 use std::f32;
-use std::io;
 use std::io::{BufferedReader,File,Open,Read};
 
 pub struct Polysoup {
@@ -189,10 +188,10 @@ fn count_kd_tree_nodes_( root: uint, nodes: &[KdTreeNode]) -> (uint, uint) {
 }
 
 pub fn read_mesh(fname: &str) -> Mesh {
-  io::print("Reading model file...");
+  print!("Reading model file...");
   let polys = read_polysoup( fname );
 
-  io::print("Building kd-tree... ");
+  print!("Building kd-tree... ");
 
   // just create a vector of 0..N-1 as our face array
   let max_tri_ix = polys.indices.len()/3u -1u;
@@ -338,19 +337,18 @@ fn read_polysoup(fname: &str) -> Polysoup {
           *vert_normals.get_mut(i2) = vert_normals.get(i2) + n;
         }
       } else {
-        io::println(format!("Polygon with {verts} vertices found. Ignored. Currently rustray only supports 4 vertices", verts=(tokens.len() - 1u)));
+        println!("Polygon with {} vertices found. Ignored. Currently rustray only supports 4 vertices", tokens.len() - 1u);
       }
     } else if *tokens.get(0) == "vt" {
       num_texcoords += 1u;
     } else if *tokens.get(0) != "#" {
-      io::println(format!("Unrecognized line in .obj file: {s}", s=line));
+      println!("Unrecognized line in .obj file: {}", line);
     }
 
     if num_texcoords > 0u {
-      io::println(format!("{num} texture coordinates ignored", num=num_texcoords));
+      println!("{} texture coordinates ignored", num_texcoords);
     }
   }
-  println!("Foobar");
 
   Polysoup{
     vertices: vertices,

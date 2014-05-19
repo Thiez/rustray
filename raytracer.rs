@@ -2,7 +2,7 @@ use super::math3d::{Vec3,Mtx33,Ray,Triangle,HitResult,cosine_hemisphere_sample,r
 use super::consts;
 use super::concurrent;
 use super::model;
-use std::{io,f32,uint};
+use std::{f32,uint};
 use std::vec::{Vec};
 use std::cmp::{min};
 use std::num::Float;
@@ -84,9 +84,9 @@ fn get_ray( horizontalFOV: f32, width: uint, height: uint, x: uint, y: uint, sam
 
 #[deriving(Clone)]
 struct RandEnv {
-  floats: ~[f32],
-  disk_samples: ~[(f32,f32)],
-  hemicos_samples: ~[Vec3]
+  floats: Vec<f32>,
+  disk_samples: Vec<(f32,f32)>,
+  hemicos_samples: Vec<Vec3>
 }
 
 fn get_rand_env() -> RandEnv {
@@ -112,9 +112,9 @@ fn get_rand_env() -> RandEnv {
   };
 
   RandEnv {
-    floats: Vec::from_fn(513u, |_x| gen.gen() ).move_iter().collect(),
-    disk_samples: disk_samples.move_iter().collect(),
-    hemicos_samples: hemicos_samples.move_iter().collect()
+    floats: Vec::from_fn(513u, |_x| gen.gen() ),
+    disk_samples: disk_samples,
+    hemicos_samples: hemicos_samples
   }
 }
 
@@ -126,7 +126,7 @@ fn sample_disk( rnd: &RandEnv, num: uint, body: |f32,f32|->() ){
   } else {
     let mut ix = rng.gen::<uint>() % rnd.disk_samples.len(); // start at random location
     for _ in range(0,num) {
-      let (u,v) = rnd.disk_samples[ix];
+      let &(u,v) = rnd.disk_samples.get(ix);
       body(u,v);
       ix = (ix + 1) % rnd.disk_samples.len();
     };
@@ -174,8 +174,8 @@ impl<'rand> Iterator<(f32,f32)> for Stratified2dIterator<'rand> {
       Some((1.0,1.0))
     } else {
       let len = self.rnd.floats.len();
-      let r1 = (self.mIndex as f32 + self.rnd.floats[offset % len]) / (self.mSamples as f32);
-      let r2 = (self.nIndex as f32 + self.rnd.floats[(offset + 1) % len]) / (self.nSamples as f32);
+      let r1 = (self.mIndex as f32 + *self.rnd.floats.get(offset % len)) / (self.mSamples as f32);
+      let r2 = (self.nIndex as f32 + *self.rnd.floats.get((offset + 1) % len)) / (self.nSamples as f32);
       self.offset += 2;
       Some((r1,r2))
     }
@@ -190,7 +190,7 @@ struct CosineHemisphereSampler<'rand> {
 impl<'rand> CosineHemisphereSampler<'rand> {
   fn new(rnd: &'rand RandEnv, n: Vec3) -> CosineHemisphereSampler<'rand> {
     let rot_to_up = rotate_to_up(n);
-    let random_rot = rotate_y( rnd.floats[ task_rng().gen::<uint>() % rnd.floats.len() ] ); // random angle about y
+    let random_rot = rotate_y( *rnd.floats.get( task_rng().gen::<uint>() % rnd.floats.len() ) ); // random angle about y
     let mtx = rot_to_up * random_rot;
     CosineHemisphereSampler {
       hemicos_samples: rnd.hemicos_samples.iter(),
@@ -697,37 +697,33 @@ struct TracetaskData {
 }
 
 #[inline]
-fn tracetask(data: ~TracetaskData) -> ~[Color] {
-  match data {
-    ~TracetaskData {meshArc: meshArc, horizontalFOV: horizontalFOV, width: width,
+fn tracetask(data: TracetaskData) -> Vec<Color> {
+  let TracetaskData{meshArc: meshArc, horizontalFOV: horizontalFOV, width: width,
     height: height, sample_grid_size: sample_grid_size, height_start: height_start,
     height_stop: height_stop, sample_coverage_inv: sample_coverage_inv, lights: lights,
-    rnd: rnd} => {
-      let mesh = meshArc.deref();
-      let mut img_pixels = Vec::with_capacity(width);
-      for row in range( height_start, height_stop ) {
-        for column in range( 0, width ) {
-          let mut shaded_color = Vec3::new(0.0,0.0,0.0);
-
-          for (u,v) in Stratified2dIterator::new(&rnd, sample_grid_size, sample_grid_size) {
-            let sample = match sample_grid_size {
-              1 => (0.0,0.0),
-              _ => (u-0.5,v-0.5)
-            };
-            let r = &get_ray(horizontalFOV, width, height, column, row, sample);
-            shaded_color = shaded_color + get_color(r, mesh, lights, &rnd, 0.0, f32::INFINITY, 0);
-          };
-          shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv * sample_coverage_inv)).scale(255.0);
-          let pixel = (
-            clamp(shaded_color.x, 0.0, 255.0),
-            clamp(shaded_color.y, 0.0, 255.0),
-            clamp(shaded_color.z, 0.0, 255.0)).toColor();
-          img_pixels.push(pixel)
-        }
-      }
-      img_pixels.move_iter().collect()
+    rnd: rnd} = data;
+  let mesh = meshArc.deref();
+  let mut img_pixels = Vec::with_capacity(width);
+  for row in range( height_start, height_stop ) {
+    for column in range( 0, width ) {
+      let mut shaded_color = Vec3::new(0.0,0.0,0.0);
+      for (u,v) in Stratified2dIterator::new(&rnd, sample_grid_size, sample_grid_size) {
+        let sample = match sample_grid_size {
+          1 => (0.0,0.0),
+          _ => (u-0.5,v-0.5)
+        };
+        let r = &get_ray(horizontalFOV, width, height, column, row, sample);
+        shaded_color = shaded_color + get_color(r, mesh, lights, &rnd, 0.0, f32::INFINITY, 0);
+      };
+      shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv * sample_coverage_inv)).scale(255.0);
+      let pixel = (
+        clamp(shaded_color.x, 0.0, 255.0),
+        clamp(shaded_color.y, 0.0, 255.0),
+        clamp(shaded_color.z, 0.0, 255.0)).toColor();
+      img_pixels.push(pixel)
     }
   }
+  img_pixels
 }
 
 fn generate_raytraced_image_single(
@@ -737,7 +733,7 @@ fn generate_raytraced_image_single(
   height: uint,
   sample_grid_size: uint,
   sample_coverage_inv: f32,
-  lights: ~[Light]) -> ~[Color]
+  lights: ~[Light]) -> Vec<Color>
 {
   let rnd = get_rand_env();
   PixelIterator::new(width,height).map(|pixel| {
@@ -772,9 +768,9 @@ fn generate_raytraced_image_multi(
   sample_grid_size: uint,
   sample_coverage_inv: f32,
   lights: ~[Light],
-  num_tasks: uint) -> ~[Color]
+  num_tasks: uint) -> Vec<Color>
 {
-  io::print(format!("using {tasks} tasks ... ", tasks=num_tasks));
+  print!("using {} tasks ... ", num_tasks);
   let meshArc = ::sync::Arc::new(mesh);
   let rnd = get_rand_env();
   let mut workers = Vec::new();
@@ -784,7 +780,7 @@ fn generate_raytraced_image_multi(
   let step_size = 4;
   let mut results = Vec::new();
   for i in range(0,(height / step_size)+1) {
-    let ttd = ~TracetaskData {   // The data required to trace the rays.
+    let ttd = TracetaskData {   // The data required to trace the rays.
       meshArc: meshArc.clone(),
       horizontalFOV: horizontalFOV,
       width: width,
@@ -798,8 +794,7 @@ fn generate_raytraced_image_multi(
     };
     results.push(workers.get_mut(i % num_tasks).calculate(ttd,tracetask));
   }
-  let mut fmap = results.move_iter().flat_map(|f| f.unwrap().move_iter() );
-  fmap.collect()
+  results.move_iter().flat_map(|f| f.unwrap().move_iter() ).collect()
 }
 
 pub fn generate_raytraced_image(
@@ -807,7 +802,7 @@ pub fn generate_raytraced_image(
   horizontalFOV: f32,
   width: uint,
   height: uint,
-  sample_grid_size: uint) -> ~[Color]
+  sample_grid_size: uint) -> Vec<Color>
 {
   let sample_coverage_inv = 1.0 / (sample_grid_size as f32);
   let lights = ~[  Light::new(Vec3::new(-3.0, 3.0, 0.0),10.0, 0.3, Vec3::new(1.0,1.0,1.0)) ]; //,

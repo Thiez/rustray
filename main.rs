@@ -9,7 +9,7 @@ extern crate time;
 extern crate sync;
 extern crate rand;
 
-use std::{io,os};
+use std::os;
 use std::io::{BufferedWriter,Writer,File,Open,Write};
 use std::path::Path;
 
@@ -33,40 +33,40 @@ fn main()
   let args = os::args();
 
   if args.len() != 2u {
-    io::println("Usage: rustray OBJ");
-    io::println("");
-    io::println("For example:");
-    io::println("   $ wget http://groups.csail.mit.edu/graphics/classes/6.837/F03/models/cow-nonormals.obj");
-    io::println("   $ ./rustray cow-nonormals.obj");
-    io::println("   $ gimp oput.ppm");
-    io::println("");
+    println!("Usage: rustray OBJ");
+    println!("");
+    println!("For example:");
+    println!("   $ wget http://groups.csail.mit.edu/graphics/classes/6.837/F03/models/cow-nonormals.obj");
+    println!("   $ ./rustray cow-nonormals.obj");
+    println!("   $ gimp oput.ppm");
+    println!("");
     fail!();
   }
 
   let start = ::time::precise_time_s();
 
 
-  io::println(~"Reading \"" + args[1] + "\"...");
-  let model = model::read_mesh( args[1] );
+  println!("Reading {}...", args.get(1));
+  let model = model::read_mesh( args.get(1).as_slice() );
 
   let (depth,count) = model::count_kd_tree_nodes( &model.kd_tree );
 
-  io::println(format!("Done.\nLoaded model.\n\tVerts: {verts}, Tris: {tris}\n\tKD-tree depth: {depth}, nodes: {nodes}",
-  verts=model.polys.vertices.len(),
-  tris=model.polys.indices.len()/3u,
-  depth=depth, nodes=count));
+  println!("Done.");
+  println!("Loaded model.");
+  println!("\tVerts: {}, Tris: {}",model.polys.vertices.len(),model.polys.indices.len()/3u);
+  println!("\tKD-tree depth: {}, nodes: {}", depth, count);
 
-  io::print("Tracing rays... ");
+  print!("Tracing rays... ");
   let start_tracing = ::time::precise_time_s();
   let pixels = raytracer::generate_raytraced_image(model, consts::FOV, consts::WIDTH, consts::HEIGHT, consts::SAMPLE_GRID_SIZE);
-  io::println("Done!");
+  println!("Done!");
   let end_tracing = ::time::precise_time_s();
 
   let outputfile = "./oput.ppm";
-  io::print(~"Writing \"" + outputfile + "\"...");
-  write_ppm( outputfile, consts::WIDTH, consts::HEIGHT, pixels );
-  io::println("Done!");
+  println!("Writing {}...", outputfile);
+  write_ppm( outputfile, consts::WIDTH, consts::HEIGHT, pixels.as_slice() );
+  println!("Done!");
 
   let end = ::time::precise_time_s();
-  io::print(format!("Total time: {total}s, of which tracing: {tracing}\n", total= (end - start), tracing=(end_tracing - start_tracing)) );
+  println!("Total time: {}s, of which tracing: {}", (end - start), (end_tracing - start_tracing));
 }
