@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 use std::ops::{Add,Sub,Mul};
 
-#[deriving(Eq,Clone,Show)]
+#[deriving(PartialEq,Clone,Show)]
 pub struct Vec3 {
   pub x:f32,
   pub y:f32,

@@ -7,7 +7,7 @@ use std::vec::{Vec};
 use std::cmp::{min};
 use std::num::Float;
 use std::slice::Items;
-use rand::{Rng,task_rng,TaskRng};
+use std::rand::{Rng,task_rng,TaskRng};
 
 pub struct Color {
   pub r:u8,
@@ -16,11 +16,11 @@ pub struct Color {
 }
 
 trait ToColor {
-  fn toColor(self)->Color;
+  fn to_color(self)->Color;
 }
 
 impl ToColor for (f32,f32,f32) {
-  fn toColor(self)->Color {
+  fn to_color(self)->Color {
     let (r,g,b) = self;
     Color {
       r: r as u8,
@@ -719,7 +719,7 @@ fn tracetask(data: TracetaskData) -> Vec<Color> {
       let pixel = (
         clamp(shaded_color.x, 0.0, 255.0),
         clamp(shaded_color.y, 0.0, 255.0),
-        clamp(shaded_color.z, 0.0, 255.0)).toColor();
+        clamp(shaded_color.z, 0.0, 255.0)).to_color();
       img_pixels.push(pixel)
     }
   }
@@ -752,7 +752,7 @@ fn generate_raytraced_image_single(
       clamp(shaded_color.x, 0.0, 255.0),
       clamp(shaded_color.y, 0.0, 255.0),
       clamp(shaded_color.z, 0.0, 255.0)
-    ).toColor()
+    ).to_color()
   }).collect()
 }
 

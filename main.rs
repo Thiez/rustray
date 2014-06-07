@@ -21,7 +21,7 @@ pub mod concurrent;
 
 fn write_ppm( fname: &str, width: uint, height: uint, pixels: &[raytracer::Color] ){
   let mut writer = File::open_mode( &Path::new(fname), Open, Write ).map(|f|BufferedWriter::new(f)).unwrap();
-  let _ = writer.write_str( format!("P6\n{} {}\n255\n", width, height) );
+  let _ = writer.write_str( format!("P6\n{} {}\n255\n", width, height).as_slice() );
   for pixel in pixels.iter() {
     let _ = writer.write([pixel.r, pixel.g, pixel.b]);
   };

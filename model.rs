@@ -278,7 +278,7 @@ fn read_polysoup(fname: &str) -> Polysoup {
 
     let mut num_texcoords = 0u;
     let mut tokens = Vec::new();
-    for s in line.split(' ') { tokens.push(s.trim()) };
+    for s in line.as_slice().split(' ') { tokens.push(s.trim()) };
 
     if *tokens.get(0) == "v" {
       assert!(tokens.len() == 4u);
