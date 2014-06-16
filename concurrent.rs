@@ -1,7 +1,5 @@
-extern crate sync;
-
-use std::{comm};
-use sync::Future;
+use std::comm;
+use std::sync::Future;
 
 pub struct ConcurrentCalc<T,U> {
   sender: comm::Sender<(T,proc(T):Send->U,comm::Sender<U>)>

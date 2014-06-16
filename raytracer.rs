@@ -7,7 +7,7 @@ use std::vec::{Vec};
 use std::cmp::{min};
 use std::num::Float;
 use std::slice::Items;
-use std::rand::{Rng,task_rng,TaskRng};
+use std::rand::{Rng,task_rng};
 
 pub struct Color {
   pub r:u8,
@@ -135,7 +135,6 @@ fn sample_disk( rnd: &RandEnv, num: uint, body: |f32,f32|->() ){
 
 struct Stratified2dIterator<'rand> {
   rnd: &'rand RandEnv,
-  rng: TaskRng,
   mSamples: uint,
   nSamples: uint,
   mIndex: uint,
@@ -149,7 +148,6 @@ impl<'rand> Stratified2dIterator<'rand> {
     let offset = rng.gen::<uint>();
     Stratified2dIterator {
       rnd: rnd,
-      rng: rng,
       mSamples: mSamples,
       nSamples: nSamples,
       mIndex: 0,
@@ -692,7 +690,7 @@ struct TracetaskData {
   height_start: uint,
   height_stop: uint,
   sample_coverage_inv: f32,
-  lights: ~[Light],
+  lights: Vec<Light>,
   rnd: RandEnv
 }
 
@@ -713,7 +711,7 @@ fn tracetask(data: TracetaskData) -> Vec<Color> {
           _ => (u-0.5,v-0.5)
         };
         let r = &get_ray(horizontalFOV, width, height, column, row, sample);
-        shaded_color = shaded_color + get_color(r, mesh, lights, &rnd, 0.0, f32::INFINITY, 0);
+        shaded_color = shaded_color + get_color(r, mesh, lights.as_slice(), &rnd, 0.0, f32::INFINITY, 0);
       };
       shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv * sample_coverage_inv)).scale(255.0);
       let pixel = (
@@ -733,7 +731,7 @@ fn generate_raytraced_image_single(
   height: uint,
   sample_grid_size: uint,
   sample_coverage_inv: f32,
-  lights: ~[Light]) -> Vec<Color>
+  lights: Vec<Light>) -> Vec<Color>
 {
   let rnd = get_rand_env();
   PixelIterator::new(width,height).map(|pixel| {
@@ -745,7 +743,7 @@ fn generate_raytraced_image_single(
         _ => (u-0.5,v-0.5)
       };
       let r = &get_ray(horizontalFOV, width, height, pixel.x, pixel.y, sample );
-      shaded_color = shaded_color + get_color(r, &mesh, lights, &rnd, 0.0, f32::INFINITY, 0);
+      shaded_color = shaded_color + get_color(r, &mesh, lights.as_slice(), &rnd, 0.0, f32::INFINITY, 0);
     };
     shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv*sample_coverage_inv)).scale(255f32);
     (
@@ -767,7 +765,7 @@ fn generate_raytraced_image_multi(
   height: uint,
   sample_grid_size: uint,
   sample_coverage_inv: f32,
-  lights: ~[Light],
+  lights: Vec<Light>,
   num_tasks: uint) -> Vec<Color>
 {
   print!("using {} tasks ... ", num_tasks);
@@ -805,7 +803,7 @@ pub fn generate_raytraced_image(
   sample_grid_size: uint) -> Vec<Color>
 {
   let sample_coverage_inv = 1.0 / (sample_grid_size as f32);
-  let lights = ~[  Light::new(Vec3::new(-3.0, 3.0, 0.0),10.0, 0.3, Vec3::new(1.0,1.0,1.0)) ]; //,
+  let lights = vec![ Light::new(Vec3::new(-3.0, 3.0, 0.0),10.0, 0.3, Vec3::new(1.0,1.0,1.0)) ]; //,
   //Light::new(Vec3::new(0f32, 0f32, 0f32), 10f32, 0.25f32, Vec3::new(1f32,1f32,1.0f32))];
   let mut num_tasks = match consts::NUM_THREADS {
     0 => 4u,
