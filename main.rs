@@ -1,4 +1,4 @@
-#![crate_id = "rustray#0.11"]
+#![crate_name = "rustray"]
 
 #![comment = "A toy ray tracer in Rust"]
 #![author = "Sebastian Sylvan"]
@@ -46,8 +46,8 @@ fn main()
   let start = ::time::precise_time_s();
 
 
-  println!("Reading {}...", args.get(1));
-  let model = model::read_mesh( args.get(1).as_slice() );
+  println!("Reading {}...", args[1]);
+  let model = model::read_mesh( args[1].as_slice() );
 
   let (depth,count) = model::count_kd_tree_nodes( &model.kd_tree );
 

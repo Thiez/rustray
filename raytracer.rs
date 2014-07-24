@@ -126,7 +126,7 @@ fn sample_disk( rnd: &RandEnv, num: uint, body: |f32,f32|->() ){
   } else {
     let mut ix = rng.gen::<uint>() % rnd.disk_samples.len(); // start at random location
     for _ in range(0,num) {
-      let &(u,v) = rnd.disk_samples.get(ix);
+      let (u,v) = rnd.disk_samples[ix];
       body(u,v);
       ix = (ix + 1) % rnd.disk_samples.len();
     };
@@ -172,8 +172,8 @@ impl<'rand> Iterator<(f32,f32)> for Stratified2dIterator<'rand> {
       Some((1.0,1.0))
     } else {
       let len = self.rnd.floats.len();
-      let r1 = (self.mIndex as f32 + *self.rnd.floats.get(offset % len)) / (self.mSamples as f32);
-      let r2 = (self.nIndex as f32 + *self.rnd.floats.get((offset + 1) % len)) / (self.nSamples as f32);
+      let r1 = (self.mIndex as f32 + self.rnd.floats[offset % len]) / (self.mSamples as f32);
+      let r2 = (self.nIndex as f32 + self.rnd.floats[(offset + 1) % len]) / (self.nSamples as f32);
       self.offset += 2;
       Some((r1,r2))
     }
@@ -188,7 +188,7 @@ struct CosineHemisphereSampler<'rand> {
 impl<'rand> CosineHemisphereSampler<'rand> {
   fn new(rnd: &'rand RandEnv, n: Vec3) -> CosineHemisphereSampler<'rand> {
     let rot_to_up = rotate_to_up(n);
-    let random_rot = rotate_y( *rnd.floats.get( task_rng().gen::<uint>() % rnd.floats.len() ) ); // random angle about y
+    let random_rot = rotate_y( rnd.floats[ task_rng().gen::<uint>() % rnd.floats.len() ] ); // random angle about y
     let mtx = rot_to_up * random_rot;
     CosineHemisphereSampler {
       hemicos_samples: rnd.hemicos_samples.iter(),
@@ -209,9 +209,9 @@ impl<'rand> Iterator<Vec3> for CosineHemisphereSampler<'rand> {
 #[inline(always)]
 fn get_triangle( m : &model::Polysoup, ix : uint ) -> Triangle{
   Triangle{
-    p1: *m.vertices.get( *m.indices.get(ix*3) ),
-    p2: *m.vertices.get( *m.indices.get(ix*3+1) ),
-    p3: *m.vertices.get( *m.indices.get(ix*3+2) )
+    p1: m.vertices[ m.indices[ix*3] ],
+    p2: m.vertices[ m.indices[ix*3+1] ],
+    p3: m.vertices[ m.indices[ix*3+2] ]
   }
 }
 
@@ -585,23 +585,23 @@ fn trace_ray( r : &Ray, mesh : &model::Mesh, mint: f32, maxt: f32) -> Option<Int
       let pos = r.origin + r.dir.scale(hit_info.t);
 
       let (i0,i1,i2) = (
-        *mesh.polys.indices.get(tri_ix*3  ),
-        *mesh.polys.indices.get(tri_ix*3+1),
-        *mesh.polys.indices.get(tri_ix*3+2)
+        mesh.polys.indices[tri_ix*3  ],
+        mesh.polys.indices[tri_ix*3+1],
+        mesh.polys.indices[tri_ix*3+2]
       );
 
       // interpolate vertex normals...
       let n = (
-        mesh.polys.normals.get(i0).scale(hit_info.barycentric.z) +
-        mesh.polys.normals.get(i1).scale(hit_info.barycentric.x) +
-        mesh.polys.normals.get(i2).scale(hit_info.barycentric.y)
+        mesh.polys.normals[i0].scale(hit_info.barycentric.z) +
+        mesh.polys.normals[i1].scale(hit_info.barycentric.x) +
+        mesh.polys.normals[i2].scale(hit_info.barycentric.y)
       ).normalized();
 
       // compute face-normal
       let (v0,v1,v2) = (
-        *mesh.polys.vertices.get(i0),
-        *mesh.polys.vertices.get(i1),
-        *mesh.polys.vertices.get(i2)
+        mesh.polys.vertices[i0],
+        mesh.polys.vertices[i1],
+        mesh.polys.vertices[i2]
       );
       let n_face = (v1 - v0).cross(&(v2 - v0)).normalized();
 

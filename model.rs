@@ -280,13 +280,13 @@ fn read_polysoup(fname: &str) -> Polysoup {
     let mut tokens = Vec::new();
     for s in line.as_slice().split(' ') { tokens.push(s.trim()) };
 
-    if *tokens.get(0) == "v" {
+    if tokens[0] == "v" {
       assert!(tokens.len() == 4u);
 
       let v = Vec3::new(
-        from_str::<f32>(*tokens.get(1)).unwrap(),
-        from_str::<f32>(*tokens.get(2)).unwrap(),
-        from_str::<f32>(*tokens.get(3)).unwrap()
+        from_str::<f32>(tokens[1]).unwrap(),
+        from_str::<f32>(tokens[2]).unwrap(),
+        from_str::<f32>(tokens[3]).unwrap()
       );
 
       assert!(!v.x.is_nan());
@@ -296,15 +296,15 @@ fn read_polysoup(fname: &str) -> Polysoup {
       vertices.push(v);
       vert_normals.push(Vec3::new(0f32,0f32,0f32));
 
-    } else if *tokens.get(0) == "f" {
+    } else if tokens[0] == "f" {
       if tokens.len() == 4u || tokens.len() == 5u {
         let mut face_triangles = Vec::new();
 
         if tokens.len() == 4u {
           let (i0,i1,i2) = (
-            parse_faceindex(*tokens.get(1)),
-            parse_faceindex(*tokens.get(2)),
-            parse_faceindex(*tokens.get(3))
+            parse_faceindex(tokens[1]),
+            parse_faceindex(tokens[2]),
+            parse_faceindex(tokens[3])
           );
 
           face_triangles.push((i0, i1, i2));
@@ -312,10 +312,10 @@ fn read_polysoup(fname: &str) -> Polysoup {
           assert!(tokens.len() == 5u);
           // quad, triangulate
           let (i0,i1,i2,i3) = (
-            parse_faceindex(*tokens.get(1)),
-            parse_faceindex(*tokens.get(2)),
-            parse_faceindex(*tokens.get(3)),
-            parse_faceindex(*tokens.get(4))
+            parse_faceindex(tokens[1]),
+            parse_faceindex(tokens[2]),
+            parse_faceindex(tokens[3]),
+            parse_faceindex(tokens[4])
           );
 
           face_triangles.push((i0,i1,i2));
@@ -328,20 +328,20 @@ fn read_polysoup(fname: &str) -> Polysoup {
           indices.push(i1);
           indices.push(i2);
 
-          let e1 = *vertices.get(i1) - *vertices.get(i0);
-          let e2 = *vertices.get(i2) - *vertices.get(i0);
+          let e1 = vertices[i1] - vertices[i0];
+          let e2 = vertices[i2] - vertices[i0];
           let n = (e1.cross(&e2)).normalized();
 
-          *vert_normals.get_mut(i0) = vert_normals.get(i0) + n;
-          *vert_normals.get_mut(i1) = vert_normals.get(i1) + n;
-          *vert_normals.get_mut(i2) = vert_normals.get(i2) + n;
+          *vert_normals.get_mut(i0) = vert_normals[i0] + n;
+          *vert_normals.get_mut(i1) = vert_normals[i1] + n;
+          *vert_normals.get_mut(i2) = vert_normals[i2] + n;
         }
       } else {
         println!("Polygon with {} vertices found. Ignored. Currently rustray only supports 4 vertices", tokens.len() - 1u);
       }
-    } else if *tokens.get(0) == "vt" {
+    } else if tokens[0] == "vt" {
       num_texcoords += 1u;
-    } else if *tokens.get(0) != "#" {
+    } else if tokens[0] != "#" {
       println!("Unrecognized line in .obj file: {}", line);
     }
 
