@@ -1,7 +1,6 @@
 #![crate_name = "rustray"]
 
 #![comment = "A toy ray tracer in Rust"]
-#![author = "Sebastian Sylvan"]
 #![license = "Unknown"]
 #![crate_type = "bin"]
 

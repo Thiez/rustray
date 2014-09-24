@@ -1,0 +1,5 @@
+[package]
+
+name = "rustray"
+version = "0.0.1"
+authors = ["Matthijs Hofstra <thiezz@gmail.com>", "Sebastian Sylvan"]
