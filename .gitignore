@@ -1,8 +1,9 @@
 *~
 models
 rustray
+target
 *.ppm
 *.obj
 *.swp
 *.exe
-
+*.lock
