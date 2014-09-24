@@ -353,6 +353,6 @@ fn read_polysoup(fname: &str) -> Polysoup {
   Polysoup{
     vertices: vertices,
     indices: indices,
-    normals: vert_normals.move_iter().map( |vec|vec.normalized() ).collect()
+    normals: vert_normals.into_iter().map( |vec|vec.normalized() ).collect()
   }
 }
