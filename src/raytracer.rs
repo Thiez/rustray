@@ -790,7 +790,7 @@ fn generate_raytraced_image_multi(
       lights: lights.clone(),
       rnd: rnd.clone()
     };
-    results.push(workers.get_mut(i % num_tasks).calculate(ttd,tracetask));
+    results.push(workers[i % num_tasks].calculate(ttd,tracetask));
   }
   results.into_iter().flat_map(|f| f.unwrap().into_iter() ).collect()
 }

@@ -39,7 +39,7 @@ fn main()
     println!("   $ ./rustray cow-nonormals.obj");
     println!("   $ gimp oput.ppm");
     println!("");
-    fail!();
+    panic!();
   }
 
   let start = ::time::precise_time_s();

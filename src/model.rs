@@ -166,7 +166,7 @@ fn build_kd_tree<'r>(
     r.as_slice()
     );
 
-  *kd_tree_nodes.get_mut(ix) = KdNode(axis, s as f32, right_child_ix as u32);
+  kd_tree_nodes[ix] = KdNode(axis, s as f32, right_child_ix as u32);
 
   ix
 }
@@ -215,7 +215,7 @@ pub fn read_mesh(fname: &str) -> Mesh {
 
 
   for v in polys.vertices.iter() {
-    transformed_verts.push((v - offset).scale(downscale));
+    transformed_verts.push((*v - offset).scale(downscale));
   }
 
   aabbmin = (aabbmin - offset).scale(downscale);
@@ -332,9 +332,9 @@ fn read_polysoup(fname: &str) -> Polysoup {
           let e2 = vertices[i2] - vertices[i0];
           let n = (e1.cross(&e2)).normalized();
 
-          *vert_normals.get_mut(i0) = vert_normals[i0] + n;
-          *vert_normals.get_mut(i1) = vert_normals[i1] + n;
-          *vert_normals.get_mut(i2) = vert_normals[i2] + n;
+          vert_normals[i0] = vert_normals[i0] + n;
+          vert_normals[i1] = vert_normals[i1] + n;
+          vert_normals[i2] = vert_normals[i2] + n;
         }
       } else {
         println!("Polygon with {} vertices found. Ignored. Currently rustray only supports 4 vertices", tokens.len() - 1u);
