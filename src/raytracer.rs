@@ -5,7 +5,7 @@ use super::model;
 use std::{f32,uint};
 use std::vec::{Vec};
 use std::cmp::{min};
-use std::num::Float;
+use std::num::{Float,FloatMath};
 use std::slice::Items;
 use std::rand::{Rng,task_rng};
 
@@ -119,7 +119,7 @@ fn get_rand_env() -> RandEnv {
 }
 
 #[inline]
-fn sample_disk( rnd: &RandEnv, num: uint, body: |f32,f32|->() ){
+fn sample_disk<F:FnMut<(f32,f32),()>>( rnd: &RandEnv, num: uint, mut body: F){
   let mut rng = task_rng();
   if num == 1 {
     body(0.0,0.0);
@@ -254,7 +254,7 @@ fn trace_kd_tree(
     }
 
     match kd_tree_nodes[cur_node] {
-      model::KdLeaf(tri_begin, tri_count) => {
+      model::KdTreeNode::KdLeaf(tri_begin, tri_count) => {
         let mut tri_index : u32 = tri_begin;
         while tri_index < tri_begin+tri_count {
 
@@ -284,12 +284,12 @@ fn trace_kd_tree(
           return res;
         }
       }
-      model::KdNode(axis, splitter, right_tree) => {
+      model::KdTreeNode::KdNode(axis, splitter, right_tree) => {
         // find the scalar direction/origin for the current axis
         let (inv_dir_scalar, origin) = match axis {
-          model::AxisX => { (inv_dir.x, r.origin.x) }
-          model::AxisY => { (inv_dir.y, r.origin.y) }
-          model::AxisZ => { (inv_dir.z, r.origin.z) }
+          model::Axis::AxisX => { (inv_dir.x, r.origin.x) }
+          model::Axis::AxisY => { (inv_dir.y, r.origin.y) }
+          model::Axis::AxisZ => { (inv_dir.z, r.origin.z) }
         };
         // figure out which side of the spliting plane the ray origin is
         // i.e. which child we need to test first.
@@ -334,7 +334,7 @@ fn trace_kd_tree_shadow(
   loop {
 
     match kd_tree_nodes[cur_node] {
-      model::KdLeaf(tri_begin, tri_count) => {
+      model::KdTreeNode::KdLeaf(tri_begin, tri_count) => {
 
         let mut tri_index = tri_begin;
         while tri_index < tri_begin + tri_count {
@@ -353,13 +353,13 @@ fn trace_kd_tree_shadow(
           return false;
         }
       }
-      model::KdNode(axis, splitter, right_tree) => {
+      model::KdTreeNode::KdNode(axis, splitter, right_tree) => {
 
         // find the scalar direction/origin for the current axis
         let (inv_dir_scalar, origin) = match axis {
-          model::AxisX => { (inv_dir.x, r.origin.x) }
-          model::AxisY => { (inv_dir.y, r.origin.y) }
-          model::AxisZ => { (inv_dir.z, r.origin.z) }
+          model::Axis::AxisX => { (inv_dir.x, r.origin.x) }
+          model::Axis::AxisY => { (inv_dir.y, r.origin.y) }
+          model::Axis::AxisZ => { (inv_dir.z, r.origin.z) }
         };
 
         // figure out which side of the spliting plane the ray origin is
@@ -433,7 +433,7 @@ impl Light {
 }
 
 #[inline(always)]
-fn direct_lighting( lights: &[Light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &RandEnv, depth: uint, occlusion_probe: |Vec3| -> bool ) -> Vec3 {
+fn direct_lighting<OcProbe: Fn<(Vec3,),bool>>( lights: &[Light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &RandEnv, depth: uint, occlusion_probe: OcProbe) -> Vec3 {
 
   let mut direct_light = Vec3::new(0.0,0.0,0.0);
   for l in lights.iter() {
@@ -444,7 +444,7 @@ fn direct_lighting( lights: &[Light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &
 
     let rot_to_up = rotate_to_up((pos - l.pos).normalized());
     let shadow_sample_weight = 1.0 / (num_samples as f32);
-    sample_disk(rnd ,num_samples, |u,v| {        // todo: stratify this
+    sample_disk(rnd ,num_samples, |&mut: u: f32 ,v: f32| {        // todo: stratify this
 
       // scale and rotate disk sample, and position it at the light's location
       let sample_pos = l.pos + rot_to_up.transform( Vec3::new(u*l.radius,0f32,v*l.radius) );
@@ -480,10 +480,10 @@ fn direct_lighting( lights: &[Light], pos: Vec3, n: Vec3, view_vec: Vec3, rnd: &
 }
 
 #[inline]
-fn shade(
+fn shade<OcProbe: Fn<(Vec3,),bool>, ColProbe: Fn<(Vec3,),Vec3>>(
   pos: Vec3, n: Vec3, n_face: Vec3, r: &Ray, color: Vec3, reflectivity: f32, lights: &[Light], rnd: &RandEnv, depth: uint,
-  occlusion_probe: |Vec3| -> bool,
-  color_probe: |Vec3| -> Vec3 ) -> Vec3 {
+  occlusion_probe: OcProbe,
+  color_probe: ColProbe) -> Vec3 {
 
   let view_vec = (r.origin - pos).normalized();
 
@@ -654,11 +654,11 @@ fn get_color( r: &Ray, mesh: &model::Mesh, lights: &[Light], rnd: &RandEnv, tmin
       let surface_origin = pos + n_face.scale(0.000002);
 
       shade(pos, n, n_face, r, color, reflectivity, lights, rnd, depth,
-      |occlusion_vec| {
+      |&:occlusion_vec| {
         let occlusion_ray = &Ray{origin: surface_origin, dir: occlusion_vec};
         trace_ray_shadow(occlusion_ray, mesh, 0.0, 1.0)
       },
-      |ray_dir| {
+      |&:ray_dir: Vec3| {
         let reflection_ray = &Ray{
           origin: surface_origin,
           dir: ray_dir.normalized(),

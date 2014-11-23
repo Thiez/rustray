@@ -1,6 +1,7 @@
 use super::math3d::{Vec3,BoundingBox};
 
 use std::f32;
+use std::num::{Float,FloatMath};
 use std::io::{BufferedReader,File,Open,Read};
 
 pub struct Polysoup {
@@ -84,7 +85,7 @@ fn build_leaf(
   ) -> uint {
 
   let next_face_ix : u32 = (new_indices.len() as u32) / 3u32;
-  kd_tree_nodes.push(KdLeaf( next_face_ix, (faces.len() as u32) ));
+  kd_tree_nodes.push(KdTreeNode::KdLeaf( next_face_ix, (faces.len() as u32) ));
 
   for f in faces.iter() {
     let f = *f;
@@ -113,12 +114,12 @@ fn build_kd_tree<'r>(
 
   let extent = aabbmax - aabbmin;
   let axis = if extent.x > extent.y && extent.x > extent.z {
-    AxisX
+    Axis::AxisX
   } else {
-    if extent.y > extent.z { AxisY } else { AxisZ }
+    if extent.y > extent.z { Axis::AxisY } else { Axis::AxisZ }
   };
 
-  let dists = match axis { AxisX => xdists, AxisY => ydists, AxisZ => zdists };
+  let dists = match axis { Axis::AxisX => xdists, Axis::AxisY => ydists, Axis::AxisZ => zdists };
 
   let s = find_split_plane( dists, indices, faces );
   let (l,r) = split_triangles( s, dists, indices, faces );
@@ -130,14 +131,14 @@ fn build_kd_tree<'r>(
 
   // adjust bounding boxes for children
   let (left_aabbmax,right_aabbmin) = match axis {
-    AxisX => (Vec3{x:s, ..aabbmax},Vec3{x:s, ..aabbmin}),
-    AxisY => (Vec3{y:s, ..aabbmax},Vec3{y:s, ..aabbmin}),
-    AxisZ => (Vec3{z:s, ..aabbmax},Vec3{z:s, ..aabbmin}),
+    Axis::AxisX => (Vec3{x:s, ..aabbmax},Vec3{x:s, ..aabbmin}),
+    Axis::AxisY => (Vec3{y:s, ..aabbmax},Vec3{y:s, ..aabbmin}),
+    Axis::AxisZ => (Vec3{z:s, ..aabbmax},Vec3{z:s, ..aabbmin}),
   };
 
   // allocate node from nodes-array, and recursively build children
   let ix = kd_tree_nodes.len();
-  kd_tree_nodes.push( KdNode(axis,0f32,0u32) );
+  kd_tree_nodes.push( KdTreeNode::KdNode(axis,0f32,0u32) );
 
   build_kd_tree(
     &mut *kd_tree_nodes,
@@ -166,7 +167,7 @@ fn build_kd_tree<'r>(
     r.as_slice()
     );
 
-  kd_tree_nodes[ix] = KdNode(axis, s as f32, right_child_ix as u32);
+  kd_tree_nodes[ix] = KdTreeNode::KdNode(axis, s as f32, right_child_ix as u32);
 
   ix
 }
@@ -178,12 +179,12 @@ pub fn count_kd_tree_nodes( t: &KdTree ) -> (uint, uint) {
 fn count_kd_tree_nodes_( root: uint, nodes: &[KdTreeNode]) -> (uint, uint) {
   use std::cmp::max;
   match nodes[root] {
-    KdNode(_,_,r) => {
+    KdTreeNode::KdNode(_,_,r) => {
       let (d0,c0) = count_kd_tree_nodes_( root+1u, nodes);
       let (d1,c1) = count_kd_tree_nodes_( (r as uint), nodes);
       (max(d0,d1)+1u, c0+c1+1u)
     }
-    KdLeaf(_,_) => (1u, 1u)
+    KdTreeNode::KdLeaf(_,_) => (1u, 1u)
   }
 }
 

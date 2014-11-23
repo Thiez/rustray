@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 use std::ops::{Add,Sub,Mul};
+use std::num::{Float,FloatMath};
 
 #[deriving(PartialEq,Clone,Show)]
 pub struct Vec3 {
