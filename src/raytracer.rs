@@ -71,11 +71,11 @@ impl Iterator<PixelCoords> for PixelIterator {
 }
 
 #[inline]
-fn get_ray( horizontalFOV: f32, width: uint, height: uint, x: uint, y: uint, sample_jitter : (f32,f32)) -> Ray {
+fn get_ray(horizontal_fov: f32, width: uint, height: uint, x: uint, y: uint, sample_jitter : (f32,f32)) -> Ray {
   let (jitterx,jittery) = sample_jitter;
   let dirx = (x as f32) - ((width/2) as f32) + jitterx;
   let diry = -((y as f32) - ((height/2) as f32)) + jittery;
-  let dirz = -((width/2u) as f32) / (horizontalFOV*0.5).tan();
+  let dirz = -((width/2u) as f32) / (horizontal_fov*0.5).tan();
   Ray{
     origin: Vec3::new(0.0, 0.0, 1.0),
     dir: Vec3::new( dirx, diry, dirz).normalized()
@@ -135,23 +135,23 @@ fn sample_disk<F:FnMut<(f32,f32),()>>( rnd: &RandEnv, num: uint, mut body: F){
 
 struct Stratified2dIterator<'rand> {
   rnd: &'rand RandEnv,
-  mSamples: uint,
-  nSamples: uint,
-  mIndex: uint,
-  nIndex: uint,
+  m_samples: uint,
+  n_samples: uint,
+  m_index: uint,
+  n_index: uint,
   offset: uint,
 }
 
 impl<'rand> Stratified2dIterator<'rand> {
-  fn new(rnd: &'rand RandEnv, mSamples: uint, nSamples: uint) -> Stratified2dIterator<'rand> {
+  fn new(rnd: &'rand RandEnv, m_samples: uint, n_samples: uint) -> Stratified2dIterator<'rand> {
     let mut rng = task_rng();
     let offset = rng.gen::<uint>();
     Stratified2dIterator {
       rnd: rnd,
-      mSamples: mSamples,
-      nSamples: nSamples,
-      mIndex: 0,
-      nIndex: uint::MAX, // overflows on first call to next()
+      m_samples: m_samples,
+      n_samples: n_samples,
+      m_index: 0,
+      n_index: uint::MAX, // overflows on first call to next()
       offset: offset,
     }
   }
@@ -159,21 +159,21 @@ impl<'rand> Stratified2dIterator<'rand> {
 
 impl<'rand> Iterator<(f32,f32)> for Stratified2dIterator<'rand> {
   fn next(&mut self) -> Option<(f32,f32)> {
-    self.nIndex += 1;
-    if self.nIndex >= self.nSamples {
-      self.nIndex = 0;
-      self.mIndex += 1;
-      if self.mIndex >= self.mSamples {
+    self.n_index += 1;
+    if self.n_index >= self.n_samples {
+      self.n_index = 0;
+      self.m_index += 1;
+      if self.m_index >= self.m_samples {
         return None;
       }
     }
-    let offset = self.offset + self.nSamples * self.nIndex;
-    if self.nSamples == 1 {
+    let offset = self.offset + self.n_samples * self.n_index;
+    if self.n_samples == 1 {
       Some((1.0,1.0))
     } else {
       let len = self.rnd.floats.len();
-      let r1 = (self.mIndex as f32 + self.rnd.floats[offset % len]) / (self.mSamples as f32);
-      let r2 = (self.nIndex as f32 + self.rnd.floats[(offset + 1) % len]) / (self.nSamples as f32);
+      let r1 = (self.m_index as f32 + self.rnd.floats[offset % len]) / (self.m_samples as f32);
+      let r2 = (self.n_index as f32 + self.rnd.floats[(offset + 1) % len]) / (self.n_samples as f32);
       self.offset += 2;
       Some((r1,r2))
     }
@@ -682,8 +682,8 @@ fn gamma_correct( v : Vec3 ) -> Vec3 {
 }
 
 struct TracetaskData {
-  meshArc: ::sync::Arc<model::Mesh>,
-  horizontalFOV: f32,
+  mesh: ::sync::Arc<model::Mesh>,
+  horizontal_fov: f32,
   width: uint,
   height: uint,
   sample_grid_size: uint,
@@ -696,11 +696,11 @@ struct TracetaskData {
 
 #[inline]
 fn tracetask(data: TracetaskData) -> Vec<Color> {
-  let TracetaskData{meshArc: meshArc, horizontalFOV: horizontalFOV, width: width,
-    height: height, sample_grid_size: sample_grid_size, height_start: height_start,
-    height_stop: height_stop, sample_coverage_inv: sample_coverage_inv, lights: lights,
-    rnd: rnd} = data;
-  let mesh = meshArc.deref();
+  let TracetaskData{mesh, horizontal_fov, width,
+    height, sample_grid_size, height_start,
+    height_stop, sample_coverage_inv, lights,
+    rnd} = data;
+  let mesh = &*mesh;
   let mut img_pixels = Vec::with_capacity(width);
   for row in range( height_start, height_stop ) {
     for column in range( 0, width ) {
@@ -710,7 +710,7 @@ fn tracetask(data: TracetaskData) -> Vec<Color> {
           1 => (0.0,0.0),
           _ => (u-0.5,v-0.5)
         };
-        let r = &get_ray(horizontalFOV, width, height, column, row, sample);
+        let r = &get_ray(horizontal_fov, width, height, column, row, sample);
         shaded_color = shaded_color + get_color(r, mesh, lights.as_slice(), &rnd, 0.0, f32::INFINITY, 0);
       };
       shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv * sample_coverage_inv)).scale(255.0);
@@ -726,7 +726,7 @@ fn tracetask(data: TracetaskData) -> Vec<Color> {
 
 fn generate_raytraced_image_single(
   mesh: model::Mesh,
-  horizontalFOV: f32,
+  horizontal_fov: f32,
   width: uint,
   height: uint,
   sample_grid_size: uint,
@@ -742,7 +742,7 @@ fn generate_raytraced_image_single(
         1 => (0.0,0.0),
         _ => (u-0.5,v-0.5)
       };
-      let r = &get_ray(horizontalFOV, width, height, pixel.x, pixel.y, sample );
+      let r = &get_ray(horizontal_fov, width, height, pixel.x, pixel.y, sample );
       shaded_color = shaded_color + get_color(r, &mesh, lights.as_slice(), &rnd, 0.0, f32::INFINITY, 0);
     };
     shaded_color = gamma_correct(shaded_color.scale(sample_coverage_inv*sample_coverage_inv)).scale(255f32);
@@ -760,7 +760,7 @@ fn generate_raytraced_image_single(
 // tasks. There is no work-stealing :(
 fn generate_raytraced_image_multi(
   mesh: model::Mesh,
-  horizontalFOV: f32,
+  horizontal_fov: f32,
   width: uint,
   height: uint,
   sample_grid_size: uint,
@@ -769,7 +769,7 @@ fn generate_raytraced_image_multi(
   num_tasks: uint) -> Vec<Color>
 {
   print!("using {} tasks ... ", num_tasks);
-  let meshArc = ::sync::Arc::new(mesh);
+  let mesh = ::sync::Arc::new(mesh);
   let rnd = get_rand_env();
   let mut workers = Vec::new();
   for _ in range(0,num_tasks) {
@@ -779,8 +779,8 @@ fn generate_raytraced_image_multi(
   let mut results = Vec::new();
   for i in range(0,(height / step_size)+1) {
     let ttd = TracetaskData {   // The data required to trace the rays.
-      meshArc: meshArc.clone(),
-      horizontalFOV: horizontalFOV,
+      mesh: mesh.clone(),
+      horizontal_fov: horizontal_fov,
       width: width,
       height: height,
       sample_grid_size: sample_grid_size,
@@ -797,7 +797,7 @@ fn generate_raytraced_image_multi(
 
 pub fn generate_raytraced_image(
   mesh: model::Mesh,
-  horizontalFOV: f32,
+  horizontal_fov: f32,
   width: uint,
   height: uint,
   sample_grid_size: uint) -> Vec<Color>
@@ -811,7 +811,7 @@ pub fn generate_raytraced_image(
   };
   if num_tasks > height { num_tasks = height };   // We evaluate complete rows, there is no point in having more tasks than there are rows.
   match num_tasks {
-    1 => generate_raytraced_image_single(mesh,horizontalFOV,width,height,sample_grid_size,sample_coverage_inv,lights),
-    n => generate_raytraced_image_multi(mesh,horizontalFOV,width,height,sample_grid_size,sample_coverage_inv,lights,n)
+    1 => generate_raytraced_image_single(mesh,horizontal_fov,width,height,sample_grid_size,sample_coverage_inv,lights),
+    n => generate_raytraced_image_multi(mesh,horizontal_fov,width,height,sample_grid_size,sample_coverage_inv,lights,n)
   }
 }
