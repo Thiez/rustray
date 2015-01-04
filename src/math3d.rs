@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 use std::ops::{Add,Sub,Mul};
 use std::num::{Float,FloatMath};
 
-#[deriving(PartialEq,Clone,Show)]
+#[derive(PartialEq,Clone,Show,Copy)]
 pub struct Vec3 {
   pub x:f32,
   pub y:f32,
@@ -76,7 +76,7 @@ impl Vec3 {
 }
 
 impl Add<Vec3, Vec3> for Vec3 {
-  fn add(&self, rhs: &Vec3) -> Vec3 {
+  fn add(self, rhs: Vec3) -> Vec3 {
     Vec3 {
       x: self.x + rhs.x,
       y: self.y + rhs.y,
@@ -86,7 +86,7 @@ impl Add<Vec3, Vec3> for Vec3 {
 }
 
 impl Sub<Vec3, Vec3> for Vec3 {
-  fn sub(&self, rhs: &Vec3) -> Vec3 {
+  fn sub(self, rhs: Vec3) -> Vec3 {
     Vec3 {
       x: self.x - rhs.x,
       y: self.y - rhs.y,
@@ -96,7 +96,7 @@ impl Sub<Vec3, Vec3> for Vec3 {
 }
 
 impl Mul<Vec3, Vec3> for Vec3 {
-  fn mul(&self, rhs: &Vec3) -> Vec3 {
+  fn mul(self, rhs: Vec3) -> Vec3 {
     Vec3 {
       x: self.x * rhs.x,
       y: self.y * rhs.y,
@@ -105,6 +105,7 @@ impl Mul<Vec3, Vec3> for Vec3 {
   }
 }
 
+#[derive(Copy)]
 pub struct Mtx33 {
   r0:Vec3,
   r1:Vec3,
@@ -130,7 +131,7 @@ impl Mtx33 {
 }
 
 impl Mul<Mtx33,Mtx33> for Mtx33 {
-  fn mul(&self, rhs: &Mtx33) -> Mtx33 {
+  fn mul(self, rhs: Mtx33) -> Mtx33 {
     let rhs = rhs.transposed();
     Mtx33 {
       r0: Vec3::new( self.r0.dot(&rhs.r0), self.r0.dot(&rhs.r1), self.r0.dot(&rhs.r2) ),
@@ -140,15 +141,20 @@ impl Mul<Mtx33,Mtx33> for Mtx33 {
   }
 }
 
+#[derive(Copy)]
 pub struct Ray {
   pub origin: Vec3,
   pub dir: Vec3,
 }
+
+#[derive(Copy)]
 pub struct Triangle {
   pub p1: Vec3,
   pub p2: Vec3,
   pub p3: Vec3,
 }
+
+#[derive(Copy)]
 pub struct HitResult {
   pub barycentric: Vec3,
   pub t: f32
@@ -211,7 +217,7 @@ impl Ray {
   }
 }
 
-
+#[derive(Copy)]
 pub struct BoundingBox {
   pub min: Vec3,
   pub max: Vec3,

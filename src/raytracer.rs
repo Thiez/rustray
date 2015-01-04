@@ -7,8 +7,10 @@ use std::vec::{Vec};
 use std::cmp::{min};
 use std::num::{Float,FloatMath};
 use std::slice::Items;
-use std::rand::{Rng,task_rng};
+use std::rand::{Rng,thread_rng};
+use std::sync::{Arc};
 
+#[derive(Copy)]
 pub struct Color {
   pub r:u8,
   pub g:u8,
@@ -30,11 +32,13 @@ impl ToColor for (f32,f32,f32) {
   }
 }
 
+#[derive(Copy)]
 struct PixelCoords {
   x: uint,
   y: uint,
 }
 
+#[derive(Copy)]
 struct PixelIterator {
   width: uint,
   height: uint,
@@ -82,7 +86,7 @@ fn get_ray(horizontal_fov: f32, width: uint, height: uint, x: uint, y: uint, sam
   }
 }
 
-#[deriving(Clone)]
+#[derive(Clone)]
 struct RandEnv {
   floats: Vec<f32>,
   disk_samples: Vec<(f32,f32)>,
@@ -90,14 +94,14 @@ struct RandEnv {
 }
 
 fn get_rand_env() -> RandEnv {
-  let mut gen = task_rng();
+  let mut gen = thread_rng();
 
-  let disk_samples = Vec::from_fn(513u, |_x| {
+  let disk_samples = range(0, 513u16).map(|_| {
     // compute random position on light disk
     let r_sqrt = gen.gen::<f32>().sqrt();
     let theta = gen.gen::<f32>() * 2.0 * f32::consts::PI;
     (r_sqrt * theta.cos(), r_sqrt*theta.sin())
-  });
+  }).collect();
 
   let mut hemicos_samples = Vec::with_capacity(consts::NUM_GI_SAMPLES_SQRT * consts::NUM_GI_SAMPLES_SQRT);
 
@@ -112,7 +116,7 @@ fn get_rand_env() -> RandEnv {
   };
 
   RandEnv {
-    floats: Vec::from_fn(513u, |_x| gen.gen() ),
+    floats: range(0, 513u16).map(|_| gen.gen() ).collect(),
     disk_samples: disk_samples,
     hemicos_samples: hemicos_samples
   }
@@ -120,7 +124,7 @@ fn get_rand_env() -> RandEnv {
 
 #[inline]
 fn sample_disk<F:FnMut<(f32,f32),()>>( rnd: &RandEnv, num: uint, mut body: F){
-  let mut rng = task_rng();
+  let mut rng = thread_rng();
   if num == 1 {
     body(0.0,0.0);
   } else {
@@ -144,7 +148,7 @@ struct Stratified2dIterator<'rand> {
 
 impl<'rand> Stratified2dIterator<'rand> {
   fn new(rnd: &'rand RandEnv, m_samples: uint, n_samples: uint) -> Stratified2dIterator<'rand> {
-    let mut rng = task_rng();
+    let mut rng = thread_rng();
     let offset = rng.gen::<uint>();
     Stratified2dIterator {
       rnd: rnd,
@@ -188,7 +192,7 @@ struct CosineHemisphereSampler<'rand> {
 impl<'rand> CosineHemisphereSampler<'rand> {
   fn new(rnd: &'rand RandEnv, n: Vec3) -> CosineHemisphereSampler<'rand> {
     let rot_to_up = rotate_to_up(n);
-    let random_rot = rotate_y( rnd.floats[ task_rng().gen::<uint>() % rnd.floats.len() ] ); // random angle about y
+    let random_rot = rotate_y( rnd.floats[ thread_rng().gen::<uint>() % rnd.floats.len() ] ); // random angle about y
     let mtx = rot_to_up * random_rot;
     CosineHemisphereSampler {
       hemicos_samples: rnd.hemicos_samples.iter(),
@@ -413,7 +417,7 @@ fn trace_soup( polys: &model::Polysoup, r: &Ray) -> Option<(HitResult, uint)>{
   return res;
 }
 
-#[deriving(Clone)]
+#[derive(Clone)]
 struct Light {
   pos: Vec3,
   strength: f32,
@@ -682,7 +686,7 @@ fn gamma_correct( v : Vec3 ) -> Vec3 {
 }
 
 struct TracetaskData {
-  mesh: ::sync::Arc<model::Mesh>,
+  mesh: Arc<model::Mesh>,
   horizontal_fov: f32,
   width: uint,
   height: uint,
@@ -769,7 +773,7 @@ fn generate_raytraced_image_multi(
   num_tasks: uint) -> Vec<Color>
 {
   print!("using {} tasks ... ", num_tasks);
-  let mesh = ::sync::Arc::new(mesh);
+  let mesh = Arc::new(mesh);
   let rnd = get_rand_env();
   let mut workers = Vec::new();
   for _ in range(0,num_tasks) {
@@ -792,7 +796,7 @@ fn generate_raytraced_image_multi(
     };
     results.push(workers[i % num_tasks].calculate(ttd,tracetask));
   }
-  results.into_iter().flat_map(|f| f.unwrap().into_iter() ).collect()
+  results.into_iter().flat_map(|f| f.into_inner().into_iter() ).collect()
 }
 
 pub fn generate_raytraced_image(

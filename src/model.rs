@@ -16,6 +16,7 @@ pub struct Mesh {
   pub bounding_box: BoundingBox,
 }
 
+#[derive(Copy)]
 pub enum Axis {
   AxisX,
   AxisY,
@@ -27,13 +28,14 @@ pub struct KdTree {
   pub nodes: Vec<KdTreeNode>,
 }
 
+#[derive(Copy)]
 pub enum KdTreeNode {
   KdLeaf( u32, u32 ),
   KdNode( Axis, f32, u32 )
 }
 
 fn find_split_plane( distances: &[f32], indices: &[uint], faces: &[uint] ) -> f32 {
-  use std::cmp::{Less,Equal,Greater};
+  use std::cmp::Ordering::{Less,Equal,Greater};
   let mut face_distances = Vec::with_capacity( 3*faces.len() );
   for f in faces.iter() {
     face_distances.push(distances[indices[*f*3u]]);
@@ -258,7 +260,7 @@ fn parse_faceindex(s: &str) ->  uint {
     Some(slash_ix) => s.slice(0u, slash_ix),
     _ => s
   };
-  from_str::<uint>(ix_str).unwrap()-1u
+  ix_str.parse::<uint>().unwrap()-1u
 }
 
 fn read_polysoup(fname: &str) -> Polysoup {
@@ -285,9 +287,9 @@ fn read_polysoup(fname: &str) -> Polysoup {
       assert!(tokens.len() == 4u);
 
       let v = Vec3::new(
-        from_str::<f32>(tokens[1]).unwrap(),
-        from_str::<f32>(tokens[2]).unwrap(),
-        from_str::<f32>(tokens[3]).unwrap()
+        tokens[1].parse().unwrap(),
+        tokens[2].parse().unwrap(),
+        tokens[3].parse().unwrap()
       );
 
       assert!(!v.x.is_nan());
