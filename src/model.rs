@@ -1,12 +1,13 @@
 use super::math3d::{Vec3,BoundingBox};
 
 use std::f32;
-use std::num::{Float,FloatMath};
-use std::io::{BufferedReader,File,Open,Read};
+use std::fs::{OpenOptions};
+use std::io::{BufReader,BufRead};
+use std::path::{Path};
 
 pub struct Polysoup {
   pub vertices: Vec<Vec3>,
-  pub indices: Vec<uint>,
+  pub indices: Vec<u32>,
   pub normals: Vec<Vec3>,
 }
 
@@ -16,7 +17,7 @@ pub struct Mesh {
   pub bounding_box: BoundingBox,
 }
 
-#[derive(Copy)]
+#[derive(Clone,Copy)]
 pub enum Axis {
   AxisX,
   AxisY,
@@ -24,45 +25,44 @@ pub enum Axis {
 }
 
 pub struct KdTree {
-  pub root: uint,
+  pub root: u32,
   pub nodes: Vec<KdTreeNode>,
 }
 
-#[derive(Copy)]
+#[derive(Clone,Copy)]
 pub enum KdTreeNode {
   KdLeaf( u32, u32 ),
   KdNode( Axis, f32, u32 )
 }
 
-fn find_split_plane( distances: &[f32], indices: &[uint], faces: &[uint] ) -> f32 {
+fn find_split_plane( distances: &[f32], indices: &[u32], faces: &[u32] ) -> f32 {
   use std::cmp::Ordering::{Less,Equal,Greater};
   let mut face_distances = Vec::with_capacity( 3*faces.len() );
-  for f in faces.iter() {
-    face_distances.push(distances[indices[*f*3u]]);
-    face_distances.push(distances[indices[*f*3u+1u]]);
-    face_distances.push(distances[indices[*f*3u+2u]]);
+  for f in faces.iter().map(|&f|(f*3) as usize) {
+    face_distances.push(distances[indices[f+0] as usize]);
+    face_distances.push(distances[indices[f+1] as usize]);
+    face_distances.push(distances[indices[f+2] as usize]);
   }
   face_distances.sort_by(|&a,&b| if a<b { Less } else if a == b { Equal } else { Greater });
 
-  let sorted_distances = face_distances.as_slice();
+  let sorted_distances = &face_distances;
 
   let n = sorted_distances.len();
-  if n % 2u == 0u {
-    sorted_distances[ n/2u ]
+  if n % 2 == 0 {
+    sorted_distances[ n/2 ]
   } else {
-    (sorted_distances[ n/2u -1u] + sorted_distances[ n/2u ]) * 0.5f32
+    (sorted_distances[ n/2 -1] + sorted_distances[ n/2 ]) * 0.5f32
   }
 }
 
-fn split_triangles( splitter: f32, distances: &[f32], indices: &[uint], faces: &[uint] ) -> (Vec<uint>,Vec<uint>) {
-  let mut l = Vec::new();
-  let mut r = Vec::new();
+fn split_triangles(splitter: f32, distances: &[f32], indices: &[u32], faces: &[u32] ) -> (Vec<u32>,Vec<u32>) {
+  let (mut l, mut r) = (vec![], vec![]);
 
-  for f in faces.iter() {
-    let f = *f;
-    let d0 = distances[indices[f*3u   ]];
-    let d1 = distances[indices[f*3u+1u]];
-    let d2 = distances[indices[f*3u+2u]];
+  for &f in faces.iter() {
+    let fi = (f*3) as usize;
+    let d0 = distances[indices[fi+0] as usize];
+    let d1 = distances[indices[fi+1] as usize];
+    let d2 = distances[indices[fi+2] as usize];
 
     let maxdist = d0.max( d1.max( d2 ) );
     let mindist = d0.min( d1.min( d2 ) );
@@ -81,36 +81,35 @@ fn split_triangles( splitter: f32, distances: &[f32], indices: &[uint], faces: &
 
 fn build_leaf(
   kd_tree_nodes : &mut Vec<KdTreeNode>,
-  new_indices: &mut Vec<uint>,
-  indices: &[uint],
-  faces: &[uint]
-  ) -> uint {
+  new_indices: &mut Vec<u32>,
+  indices: &[u32],
+  faces: &[u32]
+  ) -> u32 {
 
-  let next_face_ix : u32 = (new_indices.len() as u32) / 3u32;
+  let next_face_ix = (new_indices.len() as u32) / 3;
   kd_tree_nodes.push(KdTreeNode::KdLeaf( next_face_ix, (faces.len() as u32) ));
 
-  for f in faces.iter() {
-    let f = *f;
-    new_indices.push( indices[f*3]   );
-    new_indices.push( indices[f*3+1] );
-    new_indices.push( indices[f*3+2] );
+  for f in faces.iter().map(|&f|(f*3) as usize) {
+    new_indices.push(indices[f+0]);
+    new_indices.push(indices[f+1]);
+    new_indices.push(indices[f+2]);
   }
-  kd_tree_nodes.len() - 1u
+  (kd_tree_nodes.len() - 1) as u32
 }
 
 fn build_kd_tree<'r>(
   kd_tree_nodes : &mut Vec<KdTreeNode>,
-  new_indices: &mut Vec<uint>,
-  maxdepth: uint,
+  new_indices: &mut Vec<u32>,
+  maxdepth: u32,
   xdists: &'r [f32],
   ydists: &'r [f32],
   zdists: &'r [f32],
   aabbmin: Vec3,
   aabbmax: Vec3,
-  indices: &[uint],
-  faces: &[uint] ) -> uint {
+  indices: &[u32],
+  faces: &[u32] ) -> u32 {
 
-  if maxdepth == 0u || faces.len() <= 15u {
+  if maxdepth == 0 || faces.len() <= 15 {
     return build_leaf( kd_tree_nodes, new_indices, indices, faces );
   }
 
@@ -145,48 +144,46 @@ fn build_kd_tree<'r>(
   build_kd_tree(
     &mut *kd_tree_nodes,
     &mut *new_indices,
-    maxdepth - 1u,
+    maxdepth - 1,
     xdists,
     ydists,
     zdists,
     aabbmin,
     left_aabbmax,
     indices,
-    l.as_slice()
-    );
+    &l);
   // left child ix is implied to be ix+1
 
   let right_child_ix = build_kd_tree(
     &mut *kd_tree_nodes,
     &mut *new_indices,
-    maxdepth - 1u,
+    maxdepth - 1,
     xdists,
     ydists,
     zdists,
     right_aabbmin,
     aabbmax,
     indices,
-    r.as_slice()
-    );
+    &r);
 
   kd_tree_nodes[ix] = KdTreeNode::KdNode(axis, s as f32, right_child_ix as u32);
 
-  ix
+  ix as u32
 }
 
-pub fn count_kd_tree_nodes( t: &KdTree ) -> (uint, uint) {
-  count_kd_tree_nodes_( t.root, t.nodes.as_slice() )
+pub fn count_kd_tree_nodes( t: &KdTree ) -> (u32, u32) {
+  count_kd_tree_nodes_( t.root, &t.nodes )
 }
 
-fn count_kd_tree_nodes_( root: uint, nodes: &[KdTreeNode]) -> (uint, uint) {
+fn count_kd_tree_nodes_( root: u32, nodes: &[KdTreeNode]) -> (u32, u32) {
   use std::cmp::max;
-  match nodes[root] {
+  match nodes[root as usize] {
     KdTreeNode::KdNode(_,_,r) => {
-      let (d0,c0) = count_kd_tree_nodes_( root+1u, nodes);
-      let (d1,c1) = count_kd_tree_nodes_( (r as uint), nodes);
-      (max(d0,d1)+1u, c0+c1+1u)
+      let (d0,c0) = count_kd_tree_nodes_( root+1, nodes);
+      let (d1,c1) = count_kd_tree_nodes_( r, nodes);
+      (max(d0,d1)+1, c0+c1+1)
     }
-    KdTreeNode::KdLeaf(_,_) => (1u, 1u)
+    KdTreeNode::KdLeaf(_,_) => (1, 1)
   }
 }
 
@@ -197,12 +194,12 @@ pub fn read_mesh(fname: &str) -> Mesh {
   print!("Building kd-tree... ");
 
   // just create a vector of 0..N-1 as our face array
-  let max_tri_ix = polys.indices.len()/3u -1u;
-  let mut faces = Vec::with_capacity(max_tri_ix);
-  let mut fii = 0u;
+  let max_tri_ix = (polys.indices.len()/3 - 1) as u32;
+  let mut faces = Vec::with_capacity(max_tri_ix as usize);
+  let mut fii = 0;
   while fii < max_tri_ix {
     faces.push(fii);
-    fii += 1u
+    fii += 1
   }
   let mut aabbmin = Vec3::new(f32::INFINITY, f32::INFINITY, f32::INFINITY);
   let mut aabbmax = Vec3::new(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
@@ -217,17 +214,17 @@ pub fn read_mesh(fname: &str) -> Mesh {
   let mut transformed_verts = Vec::new();
 
 
-  for v in polys.vertices.iter() {
-    transformed_verts.push((*v - offset).scale(downscale));
+  for &v in polys.vertices.iter() {
+    transformed_verts.push((v - offset).scale(downscale));
   }
 
   aabbmin = (aabbmin - offset).scale(downscale);
   aabbmax = (aabbmax - offset).scale(downscale);
 
   // de-mux vertices for easier access later
-  let mut xdists = Vec::new();
-  let mut ydists = Vec::new();
-  let mut zdists = Vec::new();
+  let mut xdists = vec![];
+  let mut ydists = vec![];
+  let mut zdists = vec![];
 
   for v in transformed_verts.iter() {
     xdists.push(v.x);
@@ -235,56 +232,56 @@ pub fn read_mesh(fname: &str) -> Mesh {
     zdists.push(v.z);
   }
 
-  let mut nodes = Vec::new();
-  let mut new_indices = Vec::new();
+  let mut nodes = vec![];
+  let mut new_indices = vec![];
 
   let rootnode = build_kd_tree(
     &mut nodes,
     &mut new_indices,
-    100u,
-    xdists.as_slice(),
-    ydists.as_slice(),
-    zdists.as_slice(),
+    100,
+    &xdists,
+    &ydists,
+    &zdists,
     aabbmin,
     aabbmax,
-    polys.indices.as_slice(),
-    faces.as_slice());
+    &polys.indices,
+    &faces);
   Mesh { polys: Polysoup{vertices: transformed_verts, indices: new_indices, .. polys},
   kd_tree: KdTree{ root: rootnode, nodes: nodes} , bounding_box: BoundingBox{min: aabbmin, max: aabbmax} }
 }
 
-fn parse_faceindex(s: &str) ->  uint {
-
+fn parse_faceindex(s: &str) ->  u32 {
   // check for '/', the vertex index is the first
-  let ix_str: &str = match s.find('/') {
-    Some(slash_ix) => s.slice(0u, slash_ix),
-    _ => s
-  };
-  ix_str.parse::<uint>().unwrap()-1u
+  s.find('/')
+      .map(|ix|&s[0..ix])
+      .or(Some(s))
+      .map(str::parse::<u32>)
+      .and_then(Result::ok)
+      .unwrap()-1
 }
 
 fn read_polysoup(fname: &str) -> Polysoup {
-  let mut reader = File::open_mode( &Path::new(fname), Open, Read ).map(|f| BufferedReader::new(f)).ok().expect("Could not open file!");
-  let mut vertices = Vec::new();
-  let mut indices = Vec::new();
+  let reader = OpenOptions::new()
+      .read(true)
+      .open(&Path::new(fname))
+      .map(BufReader::new)
+      .ok()
+      .expect("Could not open file!");
+  let mut vertices = vec![];
+  let mut indices = vec![];
 
-  let mut vert_normals : Vec<Vec3> = Vec::new();
+  let mut vert_normals : Vec<Vec3> = vec![];
 
-  loop {
-    let line = match reader.read_line() {
-      Ok(line) => line,
-      Err(_) => break,
-    };
-    if line.is_empty() {
-      continue;
-    }
+  for line in reader
+      .lines()
+      .filter_map(Result::ok)
+      .filter(|s|!s.is_empty()) {
 
-    let mut num_texcoords = 0u;
-    let mut tokens = Vec::new();
-    for s in line.as_slice().split(' ') { tokens.push(s.trim()) };
+    let mut num_texcoords = 0;
+    let tokens = line.split(' ').map(str::trim).collect::<Vec<_>>();
 
     if tokens[0] == "v" {
-      assert!(tokens.len() == 4u);
+      assert!(tokens.len() == 4);
 
       let v = Vec3::new(
         tokens[1].parse().unwrap(),
@@ -300,10 +297,10 @@ fn read_polysoup(fname: &str) -> Polysoup {
       vert_normals.push(Vec3::new(0f32,0f32,0f32));
 
     } else if tokens[0] == "f" {
-      if tokens.len() == 4u || tokens.len() == 5u {
-        let mut face_triangles = Vec::new();
+      if tokens.len() == 4 || tokens.len() == 5 {
+        let mut face_triangles = vec![];
 
-        if tokens.len() == 4u {
+        if tokens.len() == 4 {
           let (i0,i1,i2) = (
             parse_faceindex(tokens[1]),
             parse_faceindex(tokens[2]),
@@ -312,7 +309,7 @@ fn read_polysoup(fname: &str) -> Polysoup {
 
           face_triangles.push((i0, i1, i2));
         } else {
-          assert!(tokens.len() == 5u);
+          assert!(tokens.len() == 5);
           // quad, triangulate
           let (i0,i1,i2,i3) = (
             parse_faceindex(tokens[1]),
@@ -325,11 +322,12 @@ fn read_polysoup(fname: &str) -> Polysoup {
           face_triangles.push((i0,i2,i3));
         }
 
-        for t in face_triangles.iter() {
-          let (i0,i1,i2) = *t;
+        for &(i0,i1,i2) in face_triangles.iter() {
           indices.push(i0);
           indices.push(i1);
           indices.push(i2);
+
+          let (i0,i1,i2) = (i0 as usize, i1 as usize, i2 as usize);
 
           let e1 = vertices[i1] - vertices[i0];
           let e2 = vertices[i2] - vertices[i0];
@@ -340,15 +338,15 @@ fn read_polysoup(fname: &str) -> Polysoup {
           vert_normals[i2] = vert_normals[i2] + n;
         }
       } else {
-        println!("Polygon with {} vertices found. Ignored. Currently rustray only supports 4 vertices", tokens.len() - 1u);
+        println!("Polygon with {} vertices found. Ignored. Currently rustray only supports 4 vertices", tokens.len() - 1);
       }
     } else if tokens[0] == "vt" {
-      num_texcoords += 1u;
+      num_texcoords += 1;
     } else if tokens[0] != "#" {
       println!("Unrecognized line in .obj file: {}", line);
     }
 
-    if num_texcoords > 0u {
+    if num_texcoords > 0 {
       println!("{} texture coordinates ignored", num_texcoords);
     }
   }

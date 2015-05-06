@@ -1,16 +1,13 @@
 #![crate_name = "rustray"]
 
-#![comment = "A toy ray tracer in Rust"]
-#![license = "Unknown"]
 #![crate_type = "bin"]
-#![feature(unboxed_closures, slicing_syntax)]
-#![feature(default_type_params)]
+#![feature(core, unboxed_closures, std_misc)]
 
 extern crate time;
 extern crate rand;
 
-use std::os;
-use std::io::{BufferedWriter,Writer,File,Open,Write};
+use std::fs::OpenOptions;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 pub mod consts;
@@ -19,20 +16,23 @@ pub mod model;
 pub mod raytracer;
 pub mod concurrent;
 
-fn write_ppm( fname: &str, width: uint, height: uint, pixels: &[raytracer::Color] ){
-  let mut writer = File::open_mode( &Path::new(fname), Open, Write ).map(BufferedWriter::new).unwrap();
-  let _ = writer.write_str( format!("P6\n{} {}\n255\n", width, height).as_slice() );
+fn write_ppm( fname: &str, width: u32, height: u32, pixels: &[raytracer::Color] ){
+  let mut writer = OpenOptions::new()
+      .write(true)
+      .create(true)
+      .open(&Path::new(fname)).map(BufWriter::new).unwrap();
+  let _ = writer.write_all( format!("P6\n{} {}\n255\n", width, height).as_bytes() );
   for pixel in pixels.iter() {
-    let _ = writer.write([pixel.r, pixel.g, pixel.b][]);
+    let _ = writer.write(&[pixel.r, pixel.g, pixel.b][..]);
   };
 }
 
 fn main()
 {
   // Get command line args
-  let args = os::args();
+  let args = std::env::args().collect::<Vec<_>>();
 
-  if args.len() != 2u {
+  if args.len() != 2 {
     println!("Usage: rustray OBJ");
     println!("");
     println!("For example:");
@@ -47,13 +47,13 @@ fn main()
 
 
   println!("Reading {}...", args[1]);
-  let model = model::read_mesh( args[1].as_slice() );
+  let model = model::read_mesh( &args[1] );
 
   let (depth,count) = model::count_kd_tree_nodes( &model.kd_tree );
 
   println!("Done.");
   println!("Loaded model.");
-  println!("\tVerts: {}, Tris: {}",model.polys.vertices.len(),model.polys.indices.len()/3u);
+  println!("\tVerts: {}, Tris: {}",model.polys.vertices.len(),model.polys.indices.len()/3);
   println!("\tKD-tree depth: {}, nodes: {}", depth, count);
 
   print!("Tracing rays... ");
@@ -64,7 +64,7 @@ fn main()
 
   let outputfile = "./oput.ppm";
   println!("Writing {}...", outputfile);
-  write_ppm( outputfile, consts::WIDTH, consts::HEIGHT, pixels.as_slice() );
+  write_ppm( outputfile, consts::WIDTH, consts::HEIGHT, &pixels );
   println!("Done!");
 
   let end = ::time::precise_time_s();
