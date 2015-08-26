@@ -808,7 +808,7 @@ fn generate_raytraced_image_multi(
     };
     results.push(workers[(i % num_tasks) as usize].calculate(ttd,tracetask));
   }
-  results.into_iter().flat_map(|f| f.into_inner().into_iter() ).collect()
+  results.into_iter().flat_map(|f| f.recv().unwrap() ).collect()
 }
 
 pub fn generate_raytraced_image(

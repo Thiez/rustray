@@ -1,7 +1,7 @@
 #![crate_name = "rustray"]
 
 #![crate_type = "bin"]
-#![feature(core, unboxed_closures, std_misc)]
+#![feature(unboxed_closures, fnbox)]
 
 extern crate time;
 extern crate rand;
