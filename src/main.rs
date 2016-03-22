@@ -3,7 +3,7 @@
 #![crate_type = "bin"]
 #![feature(unboxed_closures, fnbox)]
 
-extern crate time;
+extern crate chrono;
 extern crate rand;
 
 use std::fs::OpenOptions;
@@ -27,8 +27,9 @@ fn write_ppm( fname: &str, width: u32, height: u32, pixels: &[raytracer::Color] 
   };
 }
 
-fn main()
-{
+fn main() {
+  use ::chrono::{UTC};
+  
   // Get command line args
   let args = std::env::args().collect::<Vec<_>>();
 
@@ -43,7 +44,7 @@ fn main()
     panic!();
   }
 
-  let start = ::time::precise_time_s();
+  let start = UTC::now();
 
 
   println!("Reading {}...", args[1]);
@@ -57,16 +58,18 @@ fn main()
   println!("\tKD-tree depth: {}, nodes: {}", depth, count);
 
   print!("Tracing rays... ");
-  let start_tracing = ::time::precise_time_s();
+  let start_tracing = UTC::now();
   let pixels = raytracer::generate_raytraced_image(model, consts::FOV, consts::WIDTH, consts::HEIGHT, consts::SAMPLE_GRID_SIZE);
   println!("Done!");
-  let end_tracing = ::time::precise_time_s();
+  let end_tracing = UTC::now();
 
   let outputfile = "./oput.ppm";
   println!("Writing {}...", outputfile);
   write_ppm( outputfile, consts::WIDTH, consts::HEIGHT, &pixels );
   println!("Done!");
 
-  let end = ::time::precise_time_s();
-  println!("Total time: {}s, of which tracing: {}", (end - start), (end_tracing - start_tracing));
+  let end = UTC::now();
+  println!("Total time: {}s, of which tracing: {}s",
+    (end - start).num_milliseconds() as f32 / 1000.0,
+    (end_tracing - start_tracing).num_milliseconds() as f32 / 1000.0);
 }
